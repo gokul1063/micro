@@ -28,6 +28,7 @@ struct editorConfig{
   int screenrows;
   int screencols;
   int numrows;
+  int rowoff;
   erow *row;
   struct termios orgin_termios;
 };
@@ -41,7 +42,7 @@ struct abuf{
 };
 
 enum editorKey{
-  ARROW_lEFT = 1000 ,
+  ARROW_LEFT = 1000 ,
   ARROW_RIGHT,
   ARROW_UP,
   ARROW_DOWN,  
@@ -144,7 +145,7 @@ int editorReadKey(){
         case 'A' : return ARROW_UP;
         case 'B' : return ARROW_DOWN;
         case 'C' : return ARROW_RIGHT;
-        case 'D' : return ARROW_lEFT;
+        case 'D' : return ARROW_LEFT;
         case 'F' : return HOME_KEY;
         case 'H' : return END_KEY;
         }
@@ -238,18 +239,26 @@ void editorOpen(char *filename) {
 /*** input ***/
 void editorMoveCursor(int key){
   switch (key){
-    case ARROW_lEFT :
-      (E.cx - 1 < 0) ? E.cx : E.cx --;
+    case ARROW_LEFT:
+      if (E.cx != 0) {
+        E.cx--;
+      }
       break;
     case ARROW_RIGHT:
-      (E.cx + 1 > E.screencols) ? E.cx : E.cx ++;
+      if (E.cx != E.screencols - 1) {
+        E.cx++;
+      }
       break;
     case ARROW_UP:
-      (E.cy - 1 < 0) ? E.cy : E.cy --;
+      if (E.cy != 0) {
+        E.cy--;
+      }
       break;
     case ARROW_DOWN:
-      (E.cy + 1 > E.screenrows) ? E.cy : E.cy ++;
-      break;
+      if (E.cy < E.numrows) {
+        E.cy++;
+      }
+      break;;
   }
 }
 
@@ -279,7 +288,7 @@ void editorProcessKey(){
     case ARROW_DOWN:
     case ARROW_UP:
     case ARROW_RIGHT:
-    case ARROW_lEFT:
+    case ARROW_LEFT:
       editorMoveCursor(c);
       break;
   }
@@ -289,9 +298,20 @@ void editorProcessKey(){
 
 /*** output ***/
 
+void editorScroll(){
+  if (E.cy < E.rowoff) {
+    E.rowoff = E.cy;
+  }
+
+  if (E.cy >= E.rowoff + E.screenrows){
+    E.rowoff = E.cy - E.screenrows + 1;
+  }
+}
+
 void editorDrawRows(struct abuf *ab){
   int y;
   for (y = 0 ; y < E.screenrows ; y++){
+    int filerow = y + E.rowoff;
     if (y >= E.numrows) {
       if (E.numrows == 0 && y == E.screenrows /3 ){
         char welcome[80];
@@ -310,9 +330,9 @@ void editorDrawRows(struct abuf *ab){
         abAppend(ab , "~",1);
       }
     } else {
-      int len = E.row[y].size;
+      int len = E.row[filerow].size;
       if (len > E.screencols) len = E.screencols;
-      abAppend(ab , E.row[y].chars , len);
+      abAppend(ab , E.row[filerow].chars , len);
     }
     
     abAppend(ab , "\x1b[K" , 3);
@@ -324,15 +344,17 @@ void editorDrawRows(struct abuf *ab){
 }
 
 void editorRefreshScreen(){
+  editorScroll();
+
   struct abuf ab = ABUF_INIT;
 
-  abAppend(&ab , "\x1b[?25l" , 6); // HIDES THE CURSSOR
+  abAppend(&ab , "\x1b[?25l" , 6); 
   abAppend(&ab , "\x1b[H" , 3);
 
   editorDrawRows(&ab);
 
   char buf[32];
-  snprintf(buf , sizeof(buf) , "\x1b[%d;%dH" , E.cy + 1 , E.cx + 1);
+  snprintf(buf , sizeof(buf) , "\x1b[%d;%dH" , (E.cy - E.rowoff) + 1 , E.cx + 1);
   abAppend(&ab , buf , strlen(buf));
 
   
@@ -347,6 +369,7 @@ void initEditor() {
   E.cx = 0;
   E.cy = 0;
   E.numrows = 0;
+  E.rowoff = 0;
   E.row = NULL;
   if (getWindowSize(&E.screenrows , &E.screencols ) == -1 )
     die("getWindowSize");
