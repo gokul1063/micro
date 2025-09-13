@@ -52,6 +52,7 @@ struct abuf{
 };
 
 enum editorKey{
+  BACKSPACE = 127,
   ARROW_LEFT = 1000 ,
   ARROW_RIGHT,
   ARROW_UP,
@@ -270,6 +271,26 @@ void editorAppendRow(char *s , size_t len){
 
 }
 
+void editorRowInserChar(erow *row , int at , int c){
+  if (at < 0 || at > row-> size) at = row->size;
+  row->chars = realloc(row->chars , row->size + 2);
+  memmove(&row->chars[at + 1] , &row->chars[at] , row->size - at + 1);
+  row->size++;
+  row->chars[at] = c;
+  editorUpdateRow(row);
+}
+
+
+/*** editor operations ***/
+
+void editorInsertChar(int c){
+  if (E.cy == E.numrows){
+    editorAppendRow("", 0);
+  }
+  editorRowInserChar(&E.row[E.cy] , E.cx , c);
+  E.cx++;
+}
+
 /*** file i/0 ***/
 void editorOpen(char *filename) {
   free(E.filename);
@@ -336,6 +357,10 @@ void editorProcessKey(){
   int c = editorReadKey();
 
   switch (c){
+    case '\r' :
+
+      break;
+
     case CTRL_KEY('q'):
       write(STDOUT_FILENO , "\x1b[2J" , 4);
       write(STDOUT_FILENO , "\x1b[H" , 3);
@@ -348,6 +373,16 @@ void editorProcessKey(){
       if (E.cy < E.numrows){
         E.cx = E.row[E.cy].size;
       }
+      break;
+
+    case BACKSPACE:
+      if (E.cx != 0){
+        E.cx--;
+      }
+      break;
+    case CTRL_KEY('h'):
+    case DEL_KEY :
+
       break;
     case PAGE_UP:
     case PAGE_DOWN:
@@ -368,6 +403,12 @@ void editorProcessKey(){
     case ARROW_RIGHT:
     case ARROW_LEFT:
       editorMoveCursor(c);
+      break;
+    case CTRL_KEY('l'):
+    case '\x1b':
+      break;
+    default:
+      editorInsertChar(c);
       break;
   }
 
