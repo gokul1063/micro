@@ -65,6 +65,9 @@ enum editorKey{
   PAGE_DOWN
 };
 
+/*** prototypes ***/
+
+void editorSetStatusMessage(const char *fmt , ...);
 
 /*** append buffer ***/
 
@@ -327,10 +330,26 @@ void editorSave(){
   char *buff = editorRowsToString(&len);
   int fd = open(E.filename , O_RDWR | O_CREAT , 0644);
 
-  ftruncate(fd , len);
-  write(fd , buff , len);
-  close(fd);
+  if (fd != -1){
+    if(ftruncate(fd , len) != -1){
+      if (write(fd,buff,len) == len){
+        close(fd);
+        free(buff);
+        editorSetStatusMessage("%d bytes written to disk", len);
+        return;
+      } else {
+        die("write-file");
+      }
+    } else {
+      close(fd);
+      die("ftruncate");
+    }
+  } else {
+    die("fopen");
+  }
+
   free(buff);
+  editorSetStatusMessage("can't save! I/O error :%s" , strerror(errno));
 
 }
 
@@ -460,6 +479,13 @@ void editorProcessKey(){
 
 }
 
+void editorSetStatusMessage(const char *fmt , ...){
+  va_list ap;
+  va_start(ap , fmt);
+  vsnprintf(E.statusmsg, sizeof(E.statusmsg) , fmt , ap);
+  va_end(ap);
+  E.statusmsg_time = time(NULL);
+}
 
 /*** output ***/
 
@@ -547,9 +573,7 @@ void editorDrawStatusBar(struct abuf *ab){
 }
 
 void editorDrawMessageBar(struct abuf *ab){
-  abAppend(ab, "\x1b[k", 3);
-  snprintf(E.statusmsg, 80, "hello world");
-  E.statusmsg_time = time(NULL);
+  abAppend(ab, "\x1b[K", 3);
   int msglen = strlen(E.statusmsg);
   if (msglen > E.screencols) msglen = E.screencols;
   if (msglen && time(NULL) - E.statusmsg_time < 5)
@@ -580,13 +604,6 @@ void editorRefreshScreen(){
 }
 
 
-void editorsSetStatusMessage(const char *fmt , ...){
-  va_list ap;
-  va_start(ap , fmt);
-  vsnprintf(E.statusmsg, sizeof(E.statusmsg) , fmt , ap);
-  va_end(ap);
-  E.statusmsg_time = time(NULL);
-}
 
 /*** init ***/
 void initEditor() {
@@ -611,6 +628,8 @@ int main(int argc , char *argv[]) {
   if (argc >= 2){
     editorOpen(argv[1]);
   }
+
+  editorSetStatusMessage("HELP: Ctrl-s = save | Ctrl-Q = quit");
   while(1){
     editorRefreshScreen();
     editorProcessKey();
