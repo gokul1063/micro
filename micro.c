@@ -4,6 +4,7 @@
 #define _GNU_SOURCE
 
 #include <string.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -292,6 +293,48 @@ void editorInsertChar(int c){
 }
 
 /*** file i/0 ***/
+char* editorRowsToString(int *buflen){
+  int totlen = 0;
+  int j;
+
+  for (j = 0 ; j < E.numrows ; j++){
+    totlen += E.row[j].size;
+  }
+  *buflen = totlen;
+
+  char *buff = malloc(totlen);
+  char *p = buff;
+
+  for (j = 0 ; j< E.numrows ; j++){
+    memcpy(p, E.row[j].chars , E.row[j].size);
+    p += E.row[j].size; // if E.row[j].chars = "hellow world" after  
+                        // this operation p points to the next of d 
+                        // ike if d is 1022 the p is 1023 in memory
+    *p = '\n';
+    p++;
+
+  }
+  
+  return buff;
+
+}
+
+
+void editorSave(){
+  if (E.filename == NULL) return;
+
+  int len;
+  char *buff = editorRowsToString(&len);
+  int fd = open(E.filename , O_RDWR | O_CREAT , 0644);
+
+  ftruncate(fd , len);
+  write(fd , buff , len);
+  close(fd);
+  free(buff);
+
+}
+
+
 void editorOpen(char *filename) {
   free(E.filename);
   FILE *fp = fopen(filename , "r");
@@ -365,6 +408,9 @@ void editorProcessKey(){
       write(STDOUT_FILENO , "\x1b[2J" , 4);
       write(STDOUT_FILENO , "\x1b[H" , 3);
       exit(0);
+      break;
+    case CTRL_KEY('s'):
+      editorSave();
       break;
     case HOME_KEY:
       E.cx = 0;
