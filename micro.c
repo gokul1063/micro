@@ -20,6 +20,7 @@
 #define ABUF_INIT {NULL , 0}
 #define MICRO_VERSION "0.0.1"
 #define MICRO_TAB_STOP 8
+#define MICRO_QUIT_TIMES 3
 
 /** data **/
 typedef struct erow {
@@ -69,6 +70,7 @@ enum editorKey{
 /*** prototypes ***/
 
 void editorSetStatusMessage(const char *fmt , ...);
+void editorMoveCursor(int key);
 
 /*** append buffer ***/
 
@@ -112,7 +114,7 @@ void enableRawMode(){
   raw.c_iflag &= ~(ICRNL | IXON | INPCK | BRKINT | ISTRIP);
   raw.c_oflag &= ~(OPOST);
   raw.c_cflag |= (CS8);
-  raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
+  raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG); 
   raw.c_cc[VMIN] = 0;
   raw.c_cc[VTIME] = 20;
 
@@ -287,6 +289,13 @@ void editorRowInserChar(erow *row , int at , int c){
   E.dirty++;
 }
 
+void editorRowDelChar(erow *row, int at){
+  if (at < 0 || at >= row->size) return;
+  memmove(&row->chars[at], &row->chars[at+1], row->size - at);
+  row->size --;
+  editorUpdateRow(row);
+  E.dirty ++;
+}
 
 /*** editor operations ***/
 
@@ -298,6 +307,16 @@ void editorInsertChar(int c){
   E.cx++;
 }
 
+void editorDelChar() {
+  if (E.cy == E.numrows) return;
+  erow *row = &E.row[E.cy];
+  if (E.cx > 0){
+    editorRowDelChar(row, E.cx - 1);
+    E.cx --;
+    // editorMoveCursor(ARROW_LEFT);
+  }
+
+}
 /*** file i/0 ***/
 char* editorRowsToString(int *buflen){
   int totlen = 0;
@@ -421,6 +440,7 @@ void editorMoveCursor(int key){
 }
 
 void editorProcessKey(){
+  static int quit_times = MICRO_QUIT_TIMES;
   int c = editorReadKey();
 
   switch (c){
@@ -429,6 +449,11 @@ void editorProcessKey(){
       break;
 
     case CTRL_KEY('q'):
+      if (E.dirty && quit_times > 0){
+        editorSetStatusMessage("WARNING!!! file has unsaved changes. Press Ctrl-Q %d more time to quit" , quit_times);
+        quit_times--;
+        return;
+      }
       write(STDOUT_FILENO , "\x1b[2J" , 4);
       write(STDOUT_FILENO , "\x1b[H" , 3);
       exit(0);
@@ -445,14 +470,11 @@ void editorProcessKey(){
       }
       break;
 
-    case BACKSPACE:
-      if (E.cx != 0){
-        E.cx--;
-      }
-      break;
     case CTRL_KEY('h'):
     case DEL_KEY :
-
+    case BACKSPACE:
+      if (c == DEL_KEY) editorMoveCursor(ARROW_RIGHT);
+      editorDelChar();
       break;
     case PAGE_UP:
     case PAGE_DOWN:
@@ -481,6 +503,7 @@ void editorProcessKey(){
       editorInsertChar(c);
       break;
   }
+  quit_times = MICRO_QUIT_TIMES;
 
 }
 
@@ -521,7 +544,7 @@ void editorDrawRows(struct abuf *ab){
   int y;
   for (y = 0 ; y < E.screenrows ; y++){
     int filerow = y + E.rowoff;
-    if (y >= E.numrows) {
+    if (filerow >= E.numrows) {
       if (E.numrows == 0 && y == E.screenrows /3 ){
         char welcome[80];
         int welcomelen = snprintf(welcome , sizeof(welcome),
@@ -633,6 +656,7 @@ int main(int argc , char *argv[]) {
   initEditor();
   if (argc >= 2){
     editorOpen(argv[1]);
+    write(STDOUT_FILENO, "\x1b[6 q" , 5);
   }
 
   editorSetStatusMessage("HELP: Ctrl-s = save | Ctrl-Q = quit");
