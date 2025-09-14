@@ -5,6 +5,7 @@
 
 #include <string.h>
 #include <fcntl.h>
+#include <ctype.h>
 #include <unistd.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -70,7 +71,8 @@ enum editorKey{
 /*** prototypes ***/
 
 void editorSetStatusMessage(const char *fmt , ...);
-void editorMoveCursor(int key);
+void editorRefreshScreen();
+char* editorPrompt(char* prompt);
 
 /*** append buffer ***/
 
@@ -349,23 +351,6 @@ void editorInsertNewline() {
   E.cy++;
   E.cx = 0;
 }
-/*
-void editorInsertNewline() {
-  if (E.cx == 0) {
-    editorInsertRow(E.cy, "", 0);
-  } else {
-    erow *row = &E.row[E.cy];
-    editorInsertRow(E.cy + 1, &row->chars[E.cx], row->size - E.cx);
-    row = &E.row[E.cy];
-    row->size = E.cx;
-    row->chars[row->size] = '\0';
-    editorUpdateRow(row);
-  }
-  E.cy++;
-  E.cx = 0;
-}
-
-*/
 
 void editorDelChar() {
   if (E.cy == E.numrows) return;
@@ -411,7 +396,13 @@ char* editorRowsToString(int *buflen){
 
 
 void editorSave(){
-  if (E.filename == NULL) return;
+  if (E.filename == NULL){
+    E.filename = editorPrompt("Save as: %s");
+    if (E.filename == NULL){
+      editorSetStatusMessage("Save aborted");
+      return;
+    }
+  }
 
   int len;
   char *buff = editorRowsToString(&len);
@@ -466,6 +457,41 @@ void editorOpen(char *filename) {
 
 
 /*** input ***/
+char* editorPrompt(char* prompt){
+  size_t bufsize = 128;
+  char *buf = malloc(bufsize);
+  size_t buflen = 0;
+  buf[0] = '\0';
+
+  while(1){
+    editorSetStatusMessage(prompt , buf);
+    editorRefreshScreen();
+
+    int c = editorReadKey();
+    if (c == DEL_KEY || c == CTRL_KEY('h') || c == BACKSPACE){
+      if (buflen != 0) buf[--buflen] = '\0';
+    } else if (c == '\x1b'){
+      editorSetStatusMessage("");
+      free(buf);
+      return NULL;
+    } else if (c == '\r'){
+      if (buflen != 0){
+        editorSetStatusMessage("");
+        return buf;
+      }
+    } else if (!iscntrl(c) && c < 128){
+      if (buflen == bufsize - 1){
+        buflen *= 2;
+        bufsize *= 2;
+        buf = realloc(buf , buflen);
+      }
+      buf[buflen++] = c;
+      buf[buflen] = '\0';
+    }
+  }
+
+}
+
 void editorMoveCursor(int key){
   erow *row = (E.cy >= E.numrows ) ? NULL : &E.row[E.cy];
   switch (key){
