@@ -1,4 +1,4 @@
 micro: micro.c
-	gcc micro.c -o micro -Wall -Wextra -pedantic -std=c99
+	gcc micro.c -g -o micro -Wall -Wextra -pedantic -std=c99
 	
 
