@@ -471,24 +471,65 @@ void editorOpen(char *filename) {
 }
 
 /*** find ***/
-void editorFind(){
-  char *query = editorPrompt("Search: %s (ECS to cancel)");
-  if (query == NULL) return;
+
+void editorFindCallback(char *query , int key){
+  static int last_match_row = -1;
+  static int direction_row = 1;
+
+  if (key == 'r' || key == '\x1b'){
+    last_match_row = -1;
+    direction_row = 1;
+    return;
+  } else if (key == ARROW_LEFT || key == ARROW_DOWN){
+    direction_row = 1;
+  } else if (key == ARROW_RIGHT || key == ARROW_UP){
+    direction_row = -1;
+  } else {
+    last_match_row = -1;
+    direction_row = 1;
+  }
+  
+  if (last_match_row == -1) direction_row = 1;
+  int current_row = last_match_row;
 
   int i;
   for (i = 0 ; i < E.numrows ; i++){
-    erow *row = &E.row[i];
+    current_row += direction_row;
+    if (current_row == -1 ) current_row = E.numrows - 1;
+    else if (current_row == E.numrows) current_row = 0;
+
+    erow *row = &E.row[current_row];
     char *match = strstr(row->render , query);
 
     if (match) {
-      E.cy = i;
+      last_match_row = current_row;
+      E.cy = current_row;
       E.cx = editorRowRxToCx(row, match - row->render);
       E.rowoff = E.numrows;
       break;
     }
   }
 
-  free(query);
+}
+
+
+void editorFind(){
+  int saved_cx = E.cx;
+  int saved_cy = E.cy;
+  int saved_coloff = E.coloff;
+  int saved_rowoff = E.rowoff;
+
+  char *query = editorPrompt("Search: %s (Use ESC/Arrows/Enter)" , editorFindCallback);
+
+  if (query){
+    free(query);
+  } else {
+    E.cx = saved_cx;
+    E.cy = saved_cy;
+    E.coloff = saved_coloff;
+    E.rowoff = saved_rowoff;
+
+  }
 }
 
 /*** input ***/
