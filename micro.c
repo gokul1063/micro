@@ -245,6 +245,13 @@ void editorUpdateSyntax(erow *row){
 }
 
 
+int editorSyntaxToColor(int hl){
+  switch(hl){
+    case HL_NUMBER : return 31;
+    default: return 37;
+  }
+}
+
 /*** row operations ***/
 int editorRowCxToRx(erow *row , int cx){
   int rx = 0;
@@ -767,20 +774,37 @@ void editorDrawRows(struct abuf *ab){
       if (len > E.screencols) len = E.screencols;
 
       char *c = &E.row[filerow].render[E.coloff];
-      int j;
+      unsigned char *hl = &E.row[filerow].hl[E.coloff];
+      int currnet_color = -1;
 
+      int j;
       for (j = 0 ; j < len ; j++){
-        if (isdigit(c[j])){
-          abAppend(ab , "\x1b[31m" , 5);
+        if (hl[j] == HL_NORMAL){
+
+          if (currnet_color != -1){
+            abAppend(ab,"\x1b[39m" , 5);
+            currnet_color = -1;
+          }
           abAppend(ab , &c[j] , 1);
-          abAppend(ab , "\x1b[39m" , 5);
+
         } else {
+          int color_code = editorSyntaxToColor(hl[j]);
+
+          if (color_code != currnet_color){
+
+            currnet_color = color_code;
+            char color_code_buf[16];
+            int color_code_len = snprintf(color_code_buf , sizeof(color_code_buf) , "\x1b[%dm" , color_code);
+            abAppend(ab , color_code_buf , color_code_len);
+          }
+
           abAppend(ab , &c[j] , 1);
         }
       }
-      abAppend(ab , &E.row[filerow].render[E.coloff] , len);
+
+
+      abAppend(ab , "\x1b[39m" , 5);
     }
-    
     abAppend(ab , "\x1b[K" , 3);
     abAppend(ab,"\r\n", 2);
   }
