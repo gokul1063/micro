@@ -251,16 +251,18 @@ void editorUpdateSyntax(erow *row){
 
     unsigned char prev_hl = (i > 0) ? row->hl[i-1] : HL_NORMAL;
 
-    if (isdigit(c) && (prev_sep || prev_hl == HL_NORMAL) ){
+    if (isdigit(c) && (prev_sep || prev_hl == HL_NUMBER) ){
       row->hl[i] = HL_NUMBER;
       i++;
       prev_sep = 0;
       continue;
     }
+
     prev_sep = is_separator(c);
     i++;
   }
 }
+
 
 
 int editorSyntaxToColor(int hl){
