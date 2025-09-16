@@ -1,4 +1,4 @@
-Hello h3ok but now iam happy 7878200283027349283 add .
+Hello h3ok but now iam happy 7878200283027349283 add .
 
 int main(){
 	int mark = 8;

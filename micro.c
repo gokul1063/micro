@@ -72,7 +72,8 @@ enum editorKey{
 
 enum editorHighlight{
   HL_NORMAL = 0,
-  HL_NUMBER
+  HL_NUMBER,
+  HL_MATCH
 };
 
 /*** prototypes ***/
@@ -232,15 +233,25 @@ int getWindowSize(int *row , int *col){
 
 /*** syntax highlighting ***/
 
+
+int is_separator(int c){
+  return isspace(c) || c == '\0' || strchr(",.()+-/*=~%<>[];" , c) != NULL;
+}
+
+
 void editorUpdateSyntax(erow *row){
   row->hl = realloc(row->hl , row->rsize);
   memset(row->hl , HL_NORMAL , row->rsize);
+  
+  int i= 0;
+  while(i < row->rsize){
+    char c = row->render[i];
 
-  int i;
-  for (i = 0 ; i < row->rsize ; i++){
-    if (isdigit(row->render[i])){
+    if (isdigit(c)){
       row->hl[i] = HL_NUMBER;
     }
+
+    i++;
   }
 }
 
@@ -248,9 +259,11 @@ void editorUpdateSyntax(erow *row){
 int editorSyntaxToColor(int hl){
   switch(hl){
     case HL_NUMBER : return 31;
+    case HL_MATCH : return 34;
     default: return 37;
   }
 }
+
 
 /*** row operations ***/
 int editorRowCxToRx(erow *row , int cx){
@@ -508,6 +521,15 @@ void editorFindCallback(char *query , int key){
   static int last_match_row = -1;
   static int direction_row = 1;
 
+  static int saved_hl_line;
+  static char *saved_hl = NULL;
+
+  if (saved_hl){
+    memcpy(E.row[saved_hl_line].hl , saved_hl , E.row[saved_hl_line].rsize);
+    free(saved_hl);
+    saved_hl = NULL;
+  }
+
   if (key == 'r' || key == '\x1b'){
     last_match_row = -1;
     direction_row = 1;
@@ -538,6 +560,13 @@ void editorFindCallback(char *query , int key){
       E.cy = current_row;
       E.cx = editorRowRxToCx(row, match - row->render);
       E.rowoff = E.numrows;
+
+      saved_hl_line = current_row;
+
+      saved_hl = malloc(row->rsize);
+      memcpy(saved_hl , row->hl , row->rsize);
+
+      memset(&row->hl[match - row->render] , HL_MATCH , strlen(query));
       break;
     }
   }
