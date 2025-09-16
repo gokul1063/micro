@@ -230,6 +230,21 @@ int getWindowSize(int *row , int *col){
 
 }
 
+/*** syntax highlighting ***/
+
+void editorUpdateSyntax(erow *row){
+  row->hl = realloc(row->hl , row->size);
+  memset(row->hl , HL_NORMAL , row->size);
+
+  int i;
+  for (i = 0 ; i < row->size ; i++){
+    if (isdigit(row->render[i])){
+      row->hl[i] = HL_NUMBER;
+    }
+  }
+}
+
+
 /*** row operations ***/
 int editorRowCxToRx(erow *row , int cx){
   int rx = 0;
@@ -281,6 +296,7 @@ void editorUpdateRow(erow *row){
 
   row->render[idx] = '\0';
   row->rsize = idx;
+  editorUpdateSyntax(row);
 
 }
 
