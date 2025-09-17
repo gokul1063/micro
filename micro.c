@@ -23,8 +23,7 @@
 #define MICRO_TAB_STOP 8
 #define MICRO_QUIT_TIMES 3
 #define HL_HILIGHT_NUMBERS (1<<0)
-#define HLBD_ENTRIES (sizeof(HLBD) / sizeof(HBLD[0]))
-
+#define HL_HILIGHT_STRING (1<<1)
 
 
 /** data **/
@@ -79,6 +78,7 @@ enum editorKey{
 
 enum editorHighlight{
   HL_NORMAL = 0,
+  HL_STRING,
   HL_NUMBER,
   HL_MATCH
 };
@@ -91,17 +91,20 @@ struct editorSyntax {
 };
 
 
+
 /*** filetypes ***/
 
 char *C_HL_extensions[] = {".c" , ".h" , ".cpp" , NULL};
 
-struct editorSyntax HLBD[] = {
+struct editorSyntax HLDB[] = {
   {
     "c",
     C_HL_extensions,
-    HL_HILIGHT_NUMBERS
+    HL_HILIGHT_NUMBERS || HL_HILIGHT_STRING
   },
 };
+
+#define HLDB_ENTRIES (sizeof(HLDB) / sizeof(HLDB[0]))
 
 /*** prototypes ***/
 
@@ -270,7 +273,9 @@ void editorUpdateSyntax(erow *row){
   row->hl = realloc(row->hl , row->rsize);
   memset(row->hl , HL_NORMAL , row->rsize);
   
+  if (E.syntax == NULL) return;
   int prev_sep = 1;
+  int in_string = 0;
 
   int i= 0;
   while(i < row->rsize){
@@ -278,11 +283,30 @@ void editorUpdateSyntax(erow *row){
 
     unsigned char prev_hl = (i > 0) ? row->hl[i-1] : HL_NORMAL;
 
-    if ( ( isdigit(c) && (prev_sep || prev_hl == HL_NUMBER) ) || (c == '.' && prev_hl == HL_NUMBER ) ){
-      row->hl[i] = HL_NUMBER;
-      i++;
-      prev_sep = 0;
-      continue;
+    if (E.syntax->flag & HL_HILIGHT_NUMBERS){
+
+      if (in_string){
+        row->hl[i] = HL_STRING;
+        if (c == in_string) in_string = 0;
+        i++;
+        prev_sep = 1;
+        continue;
+      } else {
+        if (c == '"' || c == '\''){
+          in_string = c;
+          row->hl[i] = HL_STRING;
+          i++;
+          continue;
+
+        }
+      }
+
+      if ( ( isdigit(c) && (prev_sep || prev_hl == HL_NUMBER) ) || (c == '.' && prev_hl == HL_NUMBER ) ){
+        row->hl[i] = HL_NUMBER;
+        i++;
+        prev_sep = 0;
+        continue;
+      }
     }
 
     prev_sep = is_separator(c);
@@ -295,9 +319,38 @@ void editorUpdateSyntax(erow *row){
 int editorSyntaxToColor(int hl){
   switch(hl){
     case HL_NUMBER : return 31;
+    case HL_STRING : return 35;
     case HL_MATCH : return 34;
     default: return 37;
   }
+}
+
+
+void editorSelectSyntaxHighlight() {
+  E.syntax = NULL;
+  if (E.filename == NULL) return;
+  char *ext = strrchr(E.filename, '.');
+  for (unsigned int j = 0; j < HLDB_ENTRIES; j++) {
+    struct editorSyntax *s = &HLDB[j];
+    unsigned int i = 0;
+    while (s->filematch[i]) {
+      int is_ext = (s->filematch[i][0] == '.');
+      if ((is_ext && ext && !strcmp(ext, s->filematch[i])) ||
+          (!is_ext && strstr(E.filename, s->filematch[i]))) {
+        E.syntax = s;
+
+        int filerow;
+        for(filerow = 0 ; filerow < E.numrows ; filerow++){
+          editorUpdateSyntax(&E.row[filerow]);
+        }
+
+        return;
+      }
+      i++;
+    }
+  }
+
+
 }
 
 
@@ -498,6 +551,8 @@ void editorSave(){
       editorSetStatusMessage("Save aborted");
       return;
     }
+
+    editorSelectSyntaxHighlight();
   }
 
   int len;
@@ -532,9 +587,13 @@ void editorSave(){
 void editorOpen(char *filename) {
   free(E.filename);
   FILE *fp = fopen(filename , "r");
+
   if (!fp) die("fopen");
 
+
   E.filename = strdup(filename);
+  
+  editorSelectSyntaxHighlight();
 
   char *line = NULL;
   size_t linecap = 0;
@@ -656,7 +715,6 @@ char* editorPrompt(char* prompt , void(*callback)(char *, int)){
       }
     } else if (!iscntrl(c) && c < 128){
       if (buflen == bufsize - 1){
-        buflen *= 2;
         bufsize *= 2;
         buf = realloc(buf , buflen);
       }
@@ -882,7 +940,7 @@ void editorDrawStatusBar(struct abuf *ab){
 
   int len = snprintf(status , sizeof(status) , "%.20s - %d lines %s" , E.filename ? E.filename : "[No Name]" , E.numrows , E.dirty ? "(modified)" : "");
 
-  int rlen = snprintf(rstatus , sizeof(rstatus) , "%d-%d" , E.cy + 1 , E.numrows);
+  int rlen = snprintf(rstatus , sizeof(rstatus) , "%s | %d-%d" ,(E.syntax ) ? E.syntax->filetype : "no ft", E.cy + 1 , E.numrows);
 
   if (len > E.screencols) len = E.screencols;
   abAppend(ab , status , len);
