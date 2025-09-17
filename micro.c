@@ -22,8 +22,13 @@
 #define MICRO_VERSION "0.0.1"
 #define MICRO_TAB_STOP 8
 #define MICRO_QUIT_TIMES 3
+#define HL_HILIGHT_NUMBERS (1<<0)
+#define HLBD_ENTRIES (sizeof(HLBD) / sizeof(HBLD[0]))
+
+
 
 /** data **/
+
 typedef struct erow {
   int size;
   int rsize;
@@ -46,6 +51,8 @@ struct editorConfig{
   char statusmsg[80];
   time_t statusmsg_time;
   struct termios orgin_termios;
+  struct editorSyntax *syntax;
+
 };
 
 struct editorConfig E;
@@ -74,6 +81,26 @@ enum editorHighlight{
   HL_NORMAL = 0,
   HL_NUMBER,
   HL_MATCH
+};
+
+
+struct editorSyntax {
+  char *filetype;
+  char **filematch;
+  int flag;
+};
+
+
+/*** filetypes ***/
+
+char *C_HL_extensions[] = {".c" , ".h" , ".cpp" , NULL};
+
+struct editorSyntax HLBD[] = {
+  {
+    "c",
+    C_HL_extensions,
+    HL_HILIGHT_NUMBERS
+  },
 };
 
 /*** prototypes ***/
@@ -921,9 +948,13 @@ void initEditor() {
   E.statusmsg[0] = '\0';
   E.statusmsg_time = 0;
   E.dirty = 0;
+  E.syntax = NULL;
+
+
   if (getWindowSize(&E.screenrows , &E.screencols ) == -1 )
     die("getWindowSize");
   E.screenrows -= 2;
+
 }
 
 int main(int argc , char *argv[]) {
