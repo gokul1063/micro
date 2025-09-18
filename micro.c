@@ -79,6 +79,7 @@ enum editorKey{
 enum editorHighlight{
   HL_NORMAL = 0,
   HL_COMMENT,
+  HL_MCOMMENT,
   HL_kEYWORD1,
   HL_KEYWORD2,
   HL_STRING,
@@ -92,6 +93,8 @@ struct editorSyntax {
   char **filematch;
   char **keywords;
   char *singleline_comments_start;
+  char *multiline_comment_start;
+  char *multiline_comment_end;
   int flag;
 };
 
@@ -113,6 +116,8 @@ struct editorSyntax HLDB[] = {
     C_HL_extensions,
     C_HL_keywords,
     "//",
+    "/*",
+    "*/",
     HL_HILIGHT_NUMBERS | HL_HILIGHT_STRING
   },
 };
@@ -288,6 +293,8 @@ void editorUpdateSyntax(erow *row){
 
   
   if (E.syntax == NULL) return;
+
+  int in_comment = 0;
   int prev_sep = 1;
   int in_string = 0;
 
@@ -295,6 +302,13 @@ void editorUpdateSyntax(erow *row){
 
   char *scs = E.syntax->singleline_comments_start;
   int scs_len = scs ? strlen(scs) : 0;
+
+  // FOR MULTILINE COMMENT
+  char *mcs = E.syntax->multiline_comment_start;
+  char *mce = E.syntax->multiline_comment_end;
+  int mcs_len = mcs ? strlen(mcs) : 0;
+  int mce_len = mce ? strlen(mce) : 0;
+
 
   int i= 0;
   while(i < row->rsize){
@@ -307,6 +321,28 @@ void editorUpdateSyntax(erow *row){
         memset(&row->hl[i] , HL_COMMENT , row->rsize - i);
         break;
       }
+    }
+
+    if (mcs_len && mce_len && !in_string){
+      if (in_comment){
+        row->hl[i] = HL_MCOMMENT;
+        if (!strncmp(&row->render[i] , mce , mce_len)) {
+          memset(&row->hl[i] , HL_MCOMMENT , mce_len);
+          i += mce_len;
+          in_comment = 0;
+          prev_sep = 1;
+          continue;
+
+        } else {
+          i ++;
+          continue;
+        }
+      } else if (!strncmp(&row->render[i] , mcs , mcs_len)){
+          memset(&row->hl[i] , HL_MCOMMENT , mcs_len );
+          i += mcs_len;
+          in_comment = 1;
+          continue;
+        }
     }
 
     if (E.syntax->flag & HL_HILIGHT_NUMBERS){
@@ -375,6 +411,7 @@ int editorSyntaxToColor(int hl){
     case HL_NUMBER : return 31;
     case HL_kEYWORD1 : return 33;
     case HL_KEYWORD2 : return 32;                       
+    case HL_MCOMMENT :
     case HL_COMMENT : return 36;
     case HL_STRING : return 35;
     case HL_MATCH : return 34;
