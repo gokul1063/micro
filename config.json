@@ -1,0 +1,100 @@
+{
+  "keybindings": {
+    "normal_mode": {
+      "quit": "Ctrl-q",
+      "save": "Ctrl-s",
+      "find": "Ctrl-f",
+      "move_up": "k",
+      "move_down": "j",
+      "move_left": "h",
+      "move_right": "l",
+      "move_line_start": "0",
+      "move_line_end": "$",
+      "page_up": "Ctrl-u",
+      "page_down": "Ctrl-d",
+      "enter_insert_mode": "i",
+      "enter_insert_mode_after": "a",
+      "enter_insert_mode_line_start": "I",
+      "enter_insert_mode_line_end": "A",
+      "enter_insert_mode_new_line_below": "o",
+      "enter_insert_mode_new_line_above": "O",
+      "delete_char": "x",
+      "delete_line": "dd",
+      "undo": "u",
+      "redo": "Ctrl-r",
+      "search_forward": "/",
+      "search_backward": "?",
+      "next_match": "n",
+      "prev_match": "N",
+      "goto_line": ":",
+      "copy_line": "yy",
+      "paste_after": "p",
+      "paste_before": "P"
+    },
+    "insert_mode": {
+      "exit_insert_mode": "Escape",
+      "save": "Ctrl-s",
+      "newline": "Enter",
+      "backspace": "Backspace",
+      "delete": "Delete",
+      "move_up": "Up",
+      "move_down": "Down",
+      "move_left": "Left",
+      "move_right": "Right"
+    }
+  },
+  "colors": {
+    "default": {
+      "background": "default",
+      "foreground": "default",
+      "status_bar_bg": 7,
+      "status_bar_fg": 0,
+      "line_numbers_bg": 7,
+      "line_numbers_fg": 0,
+      "keyword1": 33,
+      "keyword2": 32,
+      "string": 35,
+      "number": 31,
+      "comment": 36,
+      "multiline_comment": 36,
+      "match": 34
+    },
+    "dark": {
+      "background": "default",
+      "foreground": "default",
+      "status_bar_bg": 8,
+      "status_bar_fg": 15,
+      "line_numbers_bg": 8,
+      "line_numbers_fg": 7,
+      "keyword1": 214,
+      "keyword2": 106,
+      "string": 213,
+      "number": 208,
+      "comment": 244,
+      "multiline_comment": 244,
+      "match": 39
+    },
+    "light": {
+      "background": "default",
+      "foreground": "default",
+      "status_bar_bg": 15,
+      "status_bar_fg": 0,
+      "line_numbers_bg": 15,
+      "line_numbers_fg": 8,
+      "keyword1": 20,
+      "keyword2": 28,
+      "string": 160,
+      "number": 166,
+      "comment": 240,
+      "multiline_comment": 240,
+      "match": 25
+    }
+  },
+  "settings": {
+    "tab_stop": 4,
+    "show_line_numbers": true,
+    "highlight_current_line": true,
+    "auto_indent": true,
+    "theme": "dark"
+  }
+}
