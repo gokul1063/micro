@@ -1,10 +1,14 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -pedantic -std=c99
+CFLAGS = -Wall -Wextra -pedantic -std=c99 -Isrc
 
-SRCS = main.c terminal.c buffer.c highlight.c fileio.c tabs.c find.c input.c screen.c config.c
+SRCS = $(wildcard src/*.c)
+OUT = build/micro
 
-micro: $(SRCS) micro.h
-	$(CC) $(CFLAGS) $(SRCS) -o micro
+$(OUT): $(SRCS) src/micro.h src/config.h
+	@mkdir -p build
+	$(CC) $(CFLAGS) $(SRCS) -o $(OUT)
+
+all: $(OUT)
 
 clean:
-	rm -f micro
+	rm -rf build

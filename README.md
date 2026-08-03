@@ -26,15 +26,40 @@ No external dependencies — just a C compiler and a terminal.
 make
 ```
 
-Produces a single `micro` binary. Works on any POSIX system (Linux, macOS, BSD).
+Produces a single binary at `build/micro`. Works on any POSIX system (Linux, macOS, BSD).
+
+```sh
+make clean   # remove the build directory
+```
 
 ## Usage
 
 ```sh
-./micro [file...]
+./build/micro [file...]
 ```
 
 The editor starts in `NORMAL` mode.
+
+## Project structure
+
+```
+micro/
+├── Makefile
+├── config.json          # keybindings, themes, settings (loaded from cwd)
+├── src/
+│   ├── main.c           # globals, initEditor, main loop
+│   ├── terminal.c       # raw mode, key reading, resize (SIGWINCH)
+│   ├── buffer.c         # rows, editing, clipboard
+│   ├── highlight.c      # syntax highlighting + language data
+│   ├── fileio.c         # open / save / rec files / quit
+│   ├── tabs.c           # multi-tab state (ownership transfer)
+│   ├── find.c           # search (/ ? n N)
+│   ├── input.c          # prompt, key processor, modes, visual, : commands
+│   ├── screen.c         # rendering, append buffer, status bar
+│   ├── config.c/.h      # JSON config loader + key mapping
+│   └── micro.h          # shared types, globals, prototypes
+└── build/               # generated binary (gitignored)
+```
 
 ### Normal-mode keybindings
 
@@ -63,8 +88,9 @@ Closing a tab with unsaved changes asks `Save before closing this tab? (y/n)`.
 
 ## Configuration
 
-All keybindings, colors, and editor settings live in **`config.json`** in the editor
-directory. The editor falls back to sensible defaults if the file is missing.
+All keybindings, colors, and editor settings live in **`config.json`** (shipped at the
+project root). The editor loads it from the current working directory and falls back
+to sensible defaults if the file is missing.
 
 ```jsonc
 {
