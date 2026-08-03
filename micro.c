@@ -732,6 +732,22 @@ void editorInsertNewline() {
   }
   E.cy++;
   E.cx = 0;
+
+  EditorConfig *cfg = config_get();
+  if (cfg->settings.auto_indent && E.cy > 0 && E.cy < E.numrows) {
+    erow *prev = &E.row[E.cy - 1];
+    int ws = 0;
+    while (ws < prev->size && (prev->chars[ws] == ' ' || prev->chars[ws] == '\t')) ws++;
+    if (ws > 0) {
+      erow *newrow = &E.row[E.cy];
+      newrow->chars = realloc(newrow->chars, newrow->size + ws + 1);
+      memmove(newrow->chars + ws, newrow->chars, newrow->size + 1);
+      memcpy(newrow->chars, prev->chars, ws);
+      newrow->size += ws;
+      editorUpdateRow(newrow);
+      E.cx = ws;
+    }
+  }
 }
 
 void editorDelChar() {
@@ -1144,6 +1160,9 @@ void editorPrevTab(void) {
 
 /*** find ***/
 
+static char *g_last_search = NULL;  /* last search query, reused by n/N */
+static int g_search_dir = 1;        /* 1 = forward (/), -1 = backward (?) */
+
 void editorFindCallback(char *query , int key){
   static int last_match_row = -1;
   static int direction_row = 1;
@@ -1159,7 +1178,7 @@ void editorFindCallback(char *query , int key){
 
   if (key == 'r' || key == '\x1b'){
     last_match_row = -1;
-    direction_row = 1;
+    direction_row = g_search_dir;
     return;
   } else if (key == ARROW_LEFT || key == ARROW_DOWN){
     direction_row = 1;
@@ -1167,10 +1186,10 @@ void editorFindCallback(char *query , int key){
     direction_row = -1;
   } else {
     last_match_row = -1;
-    direction_row = 1;
+    direction_row = g_search_dir;
   }
   
-  if (last_match_row == -1) direction_row = 1;
+  if (last_match_row == -1) direction_row = g_search_dir;
   int current_row = last_match_row;
 
   int i;
@@ -1201,22 +1220,25 @@ void editorFindCallback(char *query , int key){
 }
 
 
-void editorFind(){
+void editorFind(int forward){
   int saved_cx = E.cx;
   int saved_cy = E.cy;
   int saved_coloff = E.coloff;
   int saved_rowoff = E.rowoff;
 
-  char *query = editorPrompt("Search: %s (Use ESC/Arrows/Enter)" , editorFindCallback);
+  g_search_dir = forward ? 1 : -1;
+
+  char *query = editorPrompt((forward > 0) ? "Search: %s (Use ESC/Arrows/Enter)" : "Search backward: %s (Use ESC/Arrows/Enter)" , editorFindCallback);
 
   if (query){
+    free(g_last_search);
+    g_last_search = strdup(query);
     free(query);
   } else {
     E.cx = saved_cx;
     E.cy = saved_cy;
     E.coloff = saved_coloff;
     E.rowoff = saved_rowoff;
-
   }
 }
 
@@ -1248,7 +1270,7 @@ char* editorPrompt(char* prompt , void(*callback)(char *, int)){
     } else if (!iscntrl(c) && c < 128){
       if (buflen == bufsize - 1){
         bufsize *= 2;
-        buf = realloc(buf , buflen);
+        buf = realloc(buf , bufsize);
       }
       buf[buflen++] = c;
       buf[buflen] = '\0';
@@ -1346,7 +1368,7 @@ void editorProcessKey(){
         editorSave();
         break;
       case CTRL_KEY('f'):
-        editorFind();
+        editorFind(1);
         break;
       case CTRL_KEY('h'):
       case DEL_KEY:
@@ -1385,7 +1407,7 @@ void editorProcessKey(){
         } else if (c == save_key) {
           editorSave();
         } else if (c == find_key) {
-          editorFind();
+          editorFind(1);
         } else if (c == up_key) {
           editorMoveCursor(ARROW_UP);
         } else if (c == down_key) {
@@ -1799,19 +1821,21 @@ void editorGotoLine(void) {
 }
 
 void editorSearchForward(void) {
-  editorFind();
+  editorFind(1);
 }
 
 void editorSearchBackward(void) {
-  editorFind();
+  editorFind(-1);
 }
 
 void editorNextMatch(void) {
-  editorFindCallback("", ARROW_DOWN);
+  if (!g_last_search) { editorSetStatusMessage("No previous search"); return; }
+  editorFindCallback(g_last_search, g_search_dir > 0 ? ARROW_DOWN : ARROW_UP);
 }
 
 void editorPrevMatch(void) {
-  editorFindCallback("", ARROW_UP);
+  if (!g_last_search) { editorSetStatusMessage("No previous search"); return; }
+  editorFindCallback(g_last_search, g_search_dir > 0 ? ARROW_UP : ARROW_DOWN);
 }
 
 /*** output ***/
