@@ -519,19 +519,25 @@ void editorUpdateSyntax(erow *row){
 
 
 
-int editorSyntaxToColor(int hl){
+RGB editorSyntaxToColor(int hl){
   EditorConfig *cfg = config_get();
   ColorTheme *colors = &cfg->colors;
   switch(hl){
     case HL_NUMBER : return colors->number;
     case HL_kEYWORD1 : return colors->keyword1;
     case HL_KEYWORD2 : return colors->keyword2;                       
-    case HL_MCOMMENT :
+    case HL_MCOMMENT : return colors->multiline_comment;
     case HL_COMMENT : return colors->comment;
     case HL_STRING : return colors->string;
     case HL_MATCH : return colors->match;
-    default: return 37;
+    default: return colors->foreground;
   }
+}
+
+void abAppendFg(struct abuf *ab , RGB c){
+  char buf[32];
+  int len = snprintf(buf , sizeof(buf) , "\x1b[38;2;%d;%d;%dm" , c.r , c.g , c.b);
+  abAppend(ab , buf , len);
 }
 
 
@@ -1865,11 +1871,15 @@ void editorDrawRows(struct abuf *ab){
       }
       
       if (cfg->settings.highlight_current_line && filerow == E.cy) {
-        abAppend(ab, "\x1b[7m", 4);
+        char buf[64];
+        int clen = snprintf(buf, sizeof(buf), "\x1b[38;2;%d;%d;%dm\x1b[48;2;30;30;30m",
+                           cfg->colors.match.r, cfg->colors.match.g, cfg->colors.match.b);
+        abAppend(ab, buf, clen);
       } else {
-        char buf[16];
-        int clen = snprintf(buf, sizeof(buf), "\x1b[%d;%dm", 
-                           cfg->colors.line_numbers_fg, cfg->colors.line_numbers_bg + 10);
+        char buf[64];
+        int clen = snprintf(buf, sizeof(buf), "\x1b[38;2;%d;%d;%dm\x1b[48;2;%d;%d;%dm",
+                           cfg->colors.line_numbers_fg.r, cfg->colors.line_numbers_fg.g, cfg->colors.line_numbers_fg.b,
+                           cfg->colors.line_numbers_bg.r, cfg->colors.line_numbers_bg.g, cfg->colors.line_numbers_bg.b);
         abAppend(ab, buf, clen);
       }
       abAppend(ab, linenum, linenum_len);
@@ -1935,7 +1945,7 @@ void editorDrawRows(struct abuf *ab){
 
       char *c = &E.row[filerow].render[E.coloff];
       unsigned char *hl = &E.row[filerow].hl[E.coloff];
-      int currnet_color = -1;
+      int currnet_hl = -1;
 
       int j;
       for (j = 0 ; j < len ; j++){
@@ -1944,30 +1954,25 @@ void editorDrawRows(struct abuf *ab){
           abAppend(ab , "\x1b[7m" , 4);
           abAppend(ab , &sym , 1);
           abAppend(ab , "\x1b[m" , 3);
-          if (currnet_color != -1){
-            char buf[16];
-            int clen = snprintf(buf , sizeof(buf) , "\x1b[%dm" , currnet_color);
-            abAppend(ab , buf , clen);
-
+          if (currnet_hl != -1){
+            abAppendFg(ab , editorSyntaxToColor(currnet_hl));
+          } else {
+            abAppendFg(ab , cfg->colors.foreground);
           }
 
         } else if (hl[j] == HL_NORMAL){
 
-          if (currnet_color != -1){
+          if (currnet_hl != -1){
             abAppend(ab,"\x1b[39m" , 5);
-            currnet_color = -1;
+            currnet_hl = -1;
           }
           abAppend(ab , &c[j] , 1);
 
         } else {
-          int color_code = editorSyntaxToColor(hl[j]);
+          if (hl[j] != currnet_hl){
 
-          if (color_code != currnet_color){
-
-            currnet_color = color_code;
-            char color_code_buf[16];
-            int color_code_len = snprintf(color_code_buf , sizeof(color_code_buf) , "\x1b[%dm" , color_code);
-            abAppend(ab , color_code_buf , color_code_len);
+            currnet_hl = hl[j];
+            abAppendFg(ab , editorSyntaxToColor(hl[j]));
           }
 
           abAppend(ab , &c[j] , 1);
@@ -1993,9 +1998,11 @@ void editorDrawStatusBar(struct abuf *ab){
     case MODE_VISUAL: strcpy(mode_str, "VISUAL"); break;
   }
   
-  char status_fg[16], status_bg[16];
-  snprintf(status_fg, sizeof(status_fg), "\x1b[%dm", cfg->colors.status_bar_fg);
-  snprintf(status_bg, sizeof(status_bg), "\x1b[%dm", cfg->colors.status_bar_bg + 10);
+  char status_fg[32], status_bg[32];
+  snprintf(status_fg, sizeof(status_fg), "\x1b[38;2;%d;%d;%dm",
+           cfg->colors.status_bar_fg.r, cfg->colors.status_bar_fg.g, cfg->colors.status_bar_fg.b);
+  snprintf(status_bg, sizeof(status_bg), "\x1b[48;2;%d;%d;%dm",
+           cfg->colors.status_bar_bg.r, cfg->colors.status_bar_bg.g, cfg->colors.status_bar_bg.b);
   
   abAppend(ab, status_fg, strlen(status_fg));
   abAppend(ab, status_bg, strlen(status_bg));

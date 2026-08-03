@@ -187,6 +187,25 @@ static void config_parse_insert_keys(char *json) {
     #undef PARSE_KEY
 }
 
+static char* json_parse_color(char *p, RGB *out) {
+    p = json_skip_whitespace(p);
+    if (*p == '"') {
+        char str[16];
+        p = json_parse_string(p, str, sizeof(str));
+        if (str[0] == '#' && strlen(str) == 7) {
+            unsigned int r, g, b;
+            if (sscanf(str, "#%02x%02x%02x", &r, &g, &b) == 3) {
+                out->r = (int)r;
+                out->g = (int)g;
+                out->b = (int)b;
+            }
+        } else {
+            out->r = out->g = out->b = -1;
+        }
+    }
+    return p;
+}
+
 static void config_parse_colors(char *json) {
     char *p = json_find_key(json, "colors");
     if (!p) return;
@@ -205,7 +224,7 @@ static void config_parse_colors(char *json) {
     #define PARSE_COLOR(field, keyname) \
         do { \
             char *found = json_find_key(theme_obj, keyname); \
-            if (found) json_parse_int(found, &g_config.colors.field); \
+            if (found) json_parse_color(found, &g_config.colors.field); \
         } while(0)
 
     PARSE_COLOR(status_bar_bg, "status_bar_bg");
@@ -228,7 +247,7 @@ static void config_set_defaults(void) {
     g_config.settings.show_line_numbers = true;
     g_config.settings.highlight_current_line = true;
     g_config.settings.auto_indent = true;
-    strcpy(g_config.settings.theme, "dark");
+    strcpy(g_config.settings.theme, "opencode");
 
     strcpy(g_config.normal_keys.normal_quit, "Ctrl-q");
     strcpy(g_config.normal_keys.normal_save, "Ctrl-s");
@@ -270,19 +289,20 @@ static void config_set_defaults(void) {
     strcpy(g_config.insert_keys.move_left, "Left");
     strcpy(g_config.insert_keys.move_right, "Right");
 
-    g_config.colors.background = -1;
-    g_config.colors.foreground = -1;
-    g_config.colors.status_bar_bg = 8;
-    g_config.colors.status_bar_fg = 15;
-    g_config.colors.line_numbers_bg = 8;
-    g_config.colors.line_numbers_fg = 7;
-    g_config.colors.keyword1 = 214;
-    g_config.colors.keyword2 = 106;
-    g_config.colors.string = 213;
-    g_config.colors.number = 208;
-    g_config.colors.comment = 244;
-    g_config.colors.multiline_comment = 244;
-    g_config.colors.match = 39;
+    /* opencode default (dark) palette */
+    g_config.colors.background.r = 0x0a; g_config.colors.background.g = 0x0a; g_config.colors.background.b = 0x0a;
+    g_config.colors.foreground.r = 0xee; g_config.colors.foreground.g = 0xee; g_config.colors.foreground.b = 0xee;
+    g_config.colors.status_bar_bg.r = 0xfa; g_config.colors.status_bar_bg.g = 0xb2; g_config.colors.status_bar_bg.b = 0x83;
+    g_config.colors.status_bar_fg.r = 0x0a; g_config.colors.status_bar_fg.g = 0x0a; g_config.colors.status_bar_fg.b = 0x0a;
+    g_config.colors.line_numbers_bg.r = 0x14; g_config.colors.line_numbers_bg.g = 0x14; g_config.colors.line_numbers_bg.b = 0x14;
+    g_config.colors.line_numbers_fg.r = 0x80; g_config.colors.line_numbers_fg.g = 0x80; g_config.colors.line_numbers_fg.b = 0x80;
+    g_config.colors.keyword1.r = 0x9d; g_config.colors.keyword1.g = 0x7c; g_config.colors.keyword1.b = 0xd8;
+    g_config.colors.keyword2.r = 0xe5; g_config.colors.keyword2.g = 0xc0; g_config.colors.keyword2.b = 0x7b;
+    g_config.colors.string.r = 0x7f; g_config.colors.string.g = 0xd8; g_config.colors.string.b = 0x8f;
+    g_config.colors.number.r = 0xf5; g_config.colors.number.g = 0xa7; g_config.colors.number.b = 0x42;
+    g_config.colors.comment.r = 0x80; g_config.colors.comment.g = 0x80; g_config.colors.comment.b = 0x80;
+    g_config.colors.multiline_comment.r = 0x80; g_config.colors.multiline_comment.g = 0x80; g_config.colors.multiline_comment.b = 0x80;
+    g_config.colors.match.r = 0xfa; g_config.colors.match.g = 0xb2; g_config.colors.match.b = 0x83;
 }
 
 void config_init(void) {

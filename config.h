@@ -62,19 +62,25 @@ typedef struct {
 } InsertKeybindings;
 
 typedef struct {
-    int background;
-    int foreground;
-    int status_bar_bg;
-    int status_bar_fg;
-    int line_numbers_bg;
-    int line_numbers_fg;
-    int keyword1;
-    int keyword2;
-    int string;
-    int number;
-    int comment;
-    int multiline_comment;
-    int match;
+    int r;
+    int g;
+    int b;
+} RGB;
+
+typedef struct {
+    RGB background;
+    RGB foreground;
+    RGB status_bar_bg;
+    RGB status_bar_fg;
+    RGB line_numbers_bg;
+    RGB line_numbers_fg;
+    RGB keyword1;
+    RGB keyword2;
+    RGB string;
+    RGB number;
+    RGB comment;
+    RGB multiline_comment;
+    RGB match;
 } ColorTheme;
 
 typedef struct {
@@ -89,6 +95,5 @@ void config_load(const char *filename);
 void config_free(void);
 EditorConfig* config_get(void);
 int config_key_to_code(const char *key);
-int config_parse_color(const char *color_str);
 
 #endif
