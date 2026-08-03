@@ -23,7 +23,7 @@
 /*** defines ***/
 #define CTRL_KEY(k) ((k) & 0x1f)
 #define ABUF_INIT {NULL , 0}
-#define MICRO_VERSION "0.0.1"
+#define MICRO_VERSION "1.2"
 #define MICRO_TAB_STOP 8
 #define MICRO_QUIT_TIMES 3
 #define HL_HILIGHT_NUMBERS (1<<0)
@@ -69,6 +69,26 @@ struct editorConfig{
 
 struct editorConfig E;
 
+#define MICRO_MAX_TABS 16
+
+typedef struct {
+  erow *row;
+  int numrows;
+  int cx, cy, rx;
+  int rowoff, coloff;
+  int dirty;
+  char *filename;
+  char *recfile;
+  struct editorSyntax *syntax;
+  EditorMode mode;
+  int visual_mode;
+  int visual_cy, visual_cx;
+} Tab;
+
+Tab tabs[MICRO_MAX_TABS];
+int tab_count = 1;
+int cur_tab = 0;
+
 
 struct abuf{
   char* buffer;
@@ -85,7 +105,8 @@ enum editorKey{
   HOME_KEY,
   END_KEY,
   PAGE_UP,
-  PAGE_DOWN
+  PAGE_DOWN,
+  ALT_TAB = 2000
 };
 
 
@@ -170,7 +191,14 @@ char* editorReadRecFile(int *out_len);
 void editorHandleResize(void);
 void editorQuit(void);
 void editorRequestQuit(void);
+void editorCloseTab(void);
 void editorSave(void);
+void editorFreeRows(void);
+void editorSaveTabState(void);
+void editorLoadTabState(void);
+void editorNewTab(void);
+void editorNextTab(void);
+void editorPrevTab(void);
 void editorInstallResizeHandler(void);
 int getWindowSize(int *row , int *col);
 int editorLineNumWidth(void);
@@ -273,11 +301,10 @@ int editorReadKey(){
   if (c == '\x1b'){
     char seq[3];
 
-    
     if (read(STDIN_FILENO , &seq[0] , 1) != 1) return '\x1b';
-    if (read(STDIN_FILENO , &seq[1] , 1) != 1) return '\x1b';
 
     if (seq[0] == '['){
+      if (read(STDIN_FILENO , &seq[1] , 1) != 1) return '\x1b';
       if (seq[1] >= '0' && seq[1] <= '9'){
         if (read(STDIN_FILENO , &seq[2] , 1) != 1) return '\x1b';
         if (seq[2] == '~'){
@@ -289,11 +316,8 @@ int editorReadKey(){
             case '6' : return PAGE_DOWN;
             case '7' : return HOME_KEY;
             case '8' : return END_KEY;
-
           }
         }
-
-
       } else {
         switch (seq[1]){
         case 'A' : return ARROW_UP;
@@ -305,10 +329,14 @@ int editorReadKey(){
         }
       }
     } else if (seq[0] == 'O'){
+      if (read(STDIN_FILENO , &seq[1] , 1) != 1) return '\x1b';
       switch (seq[1]) {
         case 'H' : return HOME_KEY;
         case 'F' : return END_KEY;
       }
+    } else if (seq[0] == '\t'){
+      /* Alt+Tab */
+      return ALT_TAB;
     }
 
     return '\x1b';
@@ -628,6 +656,13 @@ void editorFreeRow(erow *row){
   free(row->hl);
 }
 
+void editorFreeRows(void){
+  for (int j = 0; j < E.numrows; j++) editorFreeRow(&E.row[j]);
+  free(E.row);
+  E.row = NULL;
+  E.numrows = 0;
+}
+
 void editorDelRow(int at){
   if (at < 0 || at >= E.numrows) return;
 
@@ -778,7 +813,19 @@ void editorRemoveRecFile(void) {
 }
 
 void editorQuit(void) {
-  editorRemoveRecFile();
+  for (int i = 0; i < tab_count; i++) {
+    if (tabs[i].recfile) {
+      remove(tabs[i].recfile);
+      free(tabs[i].recfile);
+      tabs[i].recfile = NULL;
+      if (i == cur_tab) E.recfile = NULL;
+    }
+  }
+  if (E.recfile) {
+    remove(E.recfile);
+    free(E.recfile);
+    E.recfile = NULL;
+  }
   write(STDOUT_FILENO , "\x1b[2J" , 4);
   write(STDOUT_FILENO , "\x1b[H" , 3);
   exit(0);
@@ -811,6 +858,58 @@ void editorRequestQuit(void) {
   } else {
     editorSetStatusMessage("Quit cancelled");
   }
+}
+
+void editorCloseTab(void) {
+  if (E.dirty) {
+    char *answer = editorPrompt("Unsaved changes. Save before closing this tab? (y/n) %s", NULL);
+    if (answer == NULL) {
+      editorSetStatusMessage("Tab close cancelled");
+      return;
+    }
+    char c = answer[0];
+    free(answer);
+
+    if (c == 'y' || c == 'Y') {
+      editorSave();
+      if (E.dirty) {
+        editorSetStatusMessage("Tab close cancelled");
+        return;
+      }
+    } else if (c == 'n' || c == 'N') {
+      /* discard changes */
+    } else {
+      editorSetStatusMessage("Tab close cancelled");
+      return;
+    }
+  }
+
+  if (tab_count == 1) {
+    /* last tab: closing it quits the editor */
+    editorQuit();
+    return;
+  }
+
+  /* free the focused tab's resources (buffer is owned by the active editor) */
+  editorFreeRows();
+  free(E.filename);
+  E.filename = NULL;
+  if (E.recfile) {
+    remove(E.recfile);
+    free(E.recfile);
+    E.recfile = NULL;
+  }
+
+  /* remove the tab slot and compact the array */
+  for (int i = cur_tab; i < tab_count - 1; i++) {
+    tabs[i] = tabs[i + 1];
+  }
+  tab_count--;
+
+  if (cur_tab >= tab_count) cur_tab = tab_count - 1;
+
+  editorLoadTabState();
+  editorSetStatusMessage("Tab closed (%d left)", tab_count);
 }
 
 char* editorReadRecFile(int *out_len) {
@@ -883,7 +982,21 @@ void editorSave(){
 
 void editorOpen(char *filename) {
   free(E.filename);
+  if (E.recfile) {
+    remove(E.recfile);
+    free(E.recfile);
+    E.recfile = NULL;
+  }
+  editorFreeRows();
   FILE *fp = fopen(filename , "r");
+
+  if (!fp && errno == ENOENT) {
+    /* file does not exist: create an empty one */
+    int fd = open(filename , O_RDWR | O_CREAT , 0644);
+    if (fd == -1) die("open");
+    close(fd);
+    fp = fopen(filename , "r");
+  }
 
   if (!fp) die("fopen");
 
@@ -904,8 +1017,123 @@ void editorOpen(char *filename) {
   free(line);
   fclose(fp);
   E.dirty = 0;
+  E.cx = 0;
+  E.cy = 0;
+  E.rx = 0;
+  E.rowoff = 0;
+  E.coloff = 0;
+  E.mode = MODE_NORMAL;
+  E.visual_mode = 0;
+  E.visual_cy = 0;
+  E.visual_cx = 0;
 
   editorCreateRecFile();
+}
+
+/*** tabs ***/
+
+void editorSaveTabState(void) {
+  Tab *t = &tabs[cur_tab];
+  t->row = E.row;
+  t->numrows = E.numrows;
+  t->cx = E.cx;
+  t->cy = E.cy;
+  t->rx = E.rx;
+  t->rowoff = E.rowoff;
+  t->coloff = E.coloff;
+  t->dirty = E.dirty;
+  t->filename = E.filename;
+  t->recfile = E.recfile;
+  t->syntax = E.syntax;
+  t->mode = E.mode;
+  t->visual_mode = E.visual_mode;
+  t->visual_cy = E.visual_cy;
+  t->visual_cx = E.visual_cx;
+
+  /* transfer ownership of the buffer to the tab */
+  E.row = NULL;
+  E.numrows = 0;
+  E.filename = NULL;
+  E.recfile = NULL;
+  E.syntax = NULL;
+  E.dirty = 0;
+}
+
+void editorLoadTabState(void) {
+  Tab *t = &tabs[cur_tab];
+  E.row = t->row;
+  E.numrows = t->numrows;
+  E.cx = t->cx;
+  E.cy = t->cy;
+  E.rx = t->rx;
+  E.rowoff = t->rowoff;
+  E.coloff = t->coloff;
+  E.dirty = t->dirty;
+  E.filename = t->filename;
+  E.recfile = t->recfile;
+  E.syntax = t->syntax;
+  E.mode = t->mode;
+  E.visual_mode = t->visual_mode;
+  E.visual_cy = t->visual_cy;
+  E.visual_cx = t->visual_cx;
+
+  /* the buffer is now owned by the active editor */
+  t->row = NULL;
+  t->numrows = 0;
+  t->filename = NULL;
+  t->recfile = NULL;
+  t->syntax = NULL;
+  t->dirty = 0;
+
+  if (E.cy < 0) E.cy = 0;
+  if (E.cy > E.numrows) E.cy = E.numrows;
+  if (E.cy < E.numrows && E.cx > E.row[E.cy].size) E.cx = E.row[E.cy].size;
+
+  editorSetStatusMessage("Tab %d/%d", cur_tab + 1, tab_count);
+}
+
+void editorNewTab(void) {
+  if (tab_count >= MICRO_MAX_TABS) {
+    editorSetStatusMessage("Maximum %d tabs reached", MICRO_MAX_TABS);
+    return;
+  }
+
+  if (E.dirty) editorWriteRecFile();
+  editorSaveTabState();
+
+  cur_tab = tab_count;
+  tab_count++;
+
+  Tab *t = &tabs[cur_tab];
+  memset(t, 0, sizeof(*t));
+
+  E.cx = 0;
+  E.cy = 0;
+  E.rx = 0;
+  E.rowoff = 0;
+  E.coloff = 0;
+  E.mode = MODE_NORMAL;
+  E.visual_mode = 0;
+  E.visual_cy = 0;
+  E.visual_cx = 0;
+
+  editorSetStatusMessage("New tab %d/%d", cur_tab + 1, tab_count);
+}
+
+void editorNextTab(void) {
+  if (tab_count <= 1) return;
+  if (E.dirty) editorWriteRecFile();
+  editorSaveTabState();
+  cur_tab = (cur_tab + 1) % tab_count;
+  editorLoadTabState();
+}
+
+void editorPrevTab(void) {
+  if (tab_count <= 1) return;
+  if (E.dirty) editorWriteRecFile();
+  editorSaveTabState();
+  cur_tab = (cur_tab - 1 + tab_count) % tab_count;
+  editorLoadTabState();
 }
 
 /*** find ***/
@@ -1106,7 +1334,7 @@ void editorProcessKey(){
         editorInsertNewline();
         break;
       case CTRL_KEY('q'):
-        editorRequestQuit();
+        editorCloseTab();
         break;
       case CTRL_KEY('s'):
         editorSave();
@@ -1135,9 +1363,19 @@ void editorProcessKey(){
       case 'V':
         editorEnterVisualMode(1);
         break;
+      case '\t':
+        if (cur_tab == tab_count - 1) {
+          editorNewTab();   /* at the last tab: open a fresh one */
+        } else {
+          editorNextTab();  /* otherwise move forward (rotates) */
+        }
+        break;
+      case ALT_TAB:
+        editorPrevTab();
+        break;
       default:
         if (c == quit_key) {
-          editorRequestQuit();
+          editorCloseTab();
         } else if (c == save_key) {
           editorSave();
         } else if (c == find_key) {
@@ -1525,16 +1763,33 @@ void editorRedo(void) {
 }
 
 void editorGotoLine(void) {
-  char *line_str = editorPrompt("Go to line: %s", NULL);
-  if (line_str) {
-    int line = atoi(line_str);
+  char *cmd = editorPrompt(":%s", NULL);
+  if (cmd == NULL) return;
+
+  char *p = cmd;
+  while (*p == ' ') p++;
+
+  if (*p == 'e') {
+    p++;
+    while (*p == ' ') p++;
+    if (*p != '\0') {
+      char *file = p;
+      int created = (access(file, F_OK) != 0);
+      if (E.dirty) editorWriteRecFile();
+      editorOpen(file);
+      editorSetStatusMessage(created ? "Created %s" : "Opened %s", file);
+    } else {
+      editorSetStatusMessage("Usage: :e <filename>");
+    }
+  } else {
+    int line = atoi(p);
     if (line > 0 && line <= E.numrows) {
       E.cy = line - 1;
       E.cx = 0;
       E.rowoff = E.cy;
     }
-    free(line_str);
   }
+  free(cmd);
 }
 
 void editorSearchForward(void) {
@@ -1634,6 +1889,18 @@ void editorDrawRows(struct abuf *ab){
         }
         while (padding--) abAppend(ab , " " , 1);
         abAppend(ab , welcome , welcomelen);
+
+      } else if (E.numrows == 0 && y == E.screenrows /3 + 1){
+        char hint[] = "Tab = new tab | Alt+Tab = prev tab | :e <file> = open file";
+        int hintlen = strlen(hint);
+        if (hintlen > E.screencols) hintlen  = E.screencols;
+        int padding = (E.screencols - hintlen ) / 2;
+        if (padding){
+          abAppend(ab , "~" , 1);
+          padding -- ;
+        }
+        while (padding--) abAppend(ab , " " , 1);
+        abAppend(ab , hint , hintlen);
 
       } else {
         abAppend(ab , "~",1);
@@ -1737,7 +2004,7 @@ void editorDrawStatusBar(struct abuf *ab){
 
   int len = snprintf(status , sizeof(status) , " %s %.20s - %d lines %s" , mode_str, E.filename ? E.filename : "[No Name]" , E.numrows , E.dirty ? "(modified)" : "");
 
-  int rlen = snprintf(rstatus , sizeof(rstatus) , "%s | %d-%d " ,(E.syntax ) ? E.syntax->filetype : "no ft", E.cy + 1 , E.numrows);
+  int rlen = snprintf(rstatus , sizeof(rstatus) , "%s | %d-%d | T%d/%d " ,(E.syntax ) ? E.syntax->filetype : "no ft", E.cy + 1 , E.numrows, cur_tab + 1, tab_count);
 
   if (len > E.screencols) len = E.screencols;
   abAppend(ab , status , len);
@@ -1846,7 +2113,7 @@ int main(int argc , char *argv[]) {
     write(STDOUT_FILENO, "\x1b[5 q" , 5);
   }
 
-  editorSetStatusMessage("NORMAL: i=insert | h/j/k/l=move | dd=delete line | yy=copy | p=paste | /=search | :goto | Ctrl-s=save | Ctrl-q=quit");
+  editorSetStatusMessage("i=insert | Tab=new tab | Alt+Tab=prev | :e <file>=open | :<n>=goto | Ctrl-s=save | Ctrl-q=quit");
   while(1){
     editorHandleResize();
     if (E.dirty) editorWriteRecFile();
