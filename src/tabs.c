@@ -104,8 +104,8 @@ void editorPrevTab(void) {
   editorLoadTabState();
 }
 
-void editorCloseTab(void) {
-  if (E.dirty) {
+static void editorCloseTabImpl(int force) {
+  if (!force && E.dirty) {
     char *answer = editorPrompt("Unsaved changes. Save before closing this tab? (y/n) %s", NULL);
     if (answer == NULL) {
       editorSetStatusMessage("Tab close cancelled");
@@ -154,4 +154,12 @@ void editorCloseTab(void) {
 
   editorLoadTabState();
   editorSetStatusMessage("Tab closed (%d left)", tab_count);
+}
+
+void editorCloseTab(void) {
+  editorCloseTabImpl(0);
+}
+
+void editorForceCloseTab(void) {
+  editorCloseTabImpl(1);
 }

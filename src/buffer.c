@@ -252,11 +252,3 @@ void editorDeleteLine(void) {
   E.cx = 0;
   editorSetStatusMessage("Line deleted");
 }
-
-void editorUndo(void) {
-  editorSetStatusMessage("Undo not implemented yet");
-}
-
-void editorRedo(void) {
-  editorSetStatusMessage("Redo not implemented yet");
-}

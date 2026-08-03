@@ -16,6 +16,9 @@ No external dependencies — just a C compiler and a terminal.
 - **`/` and `?` search**, `n` / `N` next/previous match
 - **Line numbers**, current-line highlight, configurable tab width
 - **Clipboard** — `yy` / `dd` yank & delete, `p` / `P` paste
+- **Undo / redo** — `u` / `Ctrl-r` (each insert session or command is one undo step)
+- **Word motions** — `w` `b` `e`, plus `^` (first non-blank), `gg` / `G` (first / last line)
+- **Vim ex-commands** — `:w` `:q` `:q!` `:wq` `:tabnew` `:e <file>` `:<line>`
 - **Blinking solid-block cursor**
 - **Live resize** — handles `SIGWINCH` and redraws on terminal resize
 - **`:` command line** — `:e <file>` opens/creates a file, `:<line>` jumps to a line
@@ -66,6 +69,9 @@ micro/
 | Key | Action |
 |---|---|
 | `h` `j` `k` `l` | Move cursor |
+| `w` `b` `e` | Word motions (next / back / end) |
+| `^` | First non-blank character of line |
+| `gg` / `G` | Go to first / last line |
 | `i` / `a` | Insert before / after cursor |
 | `I` / `A` | Insert at line start / end |
 | `o` / `O` | Insert new line below / above |
@@ -73,9 +79,10 @@ micro/
 | `x` | Delete character |
 | `dd` / `yy` | Delete / copy line |
 | `p` / `P` | Paste after / before |
+| `u` / `Ctrl-r` | Undo / redo |
 | `/` / `?` | Search forward / backward |
 | `n` / `N` | Next / previous match |
-| `:` | Command line (`:e <file>`, `:<line>`) |
+| `:` | Command line (`:e`, `:w`, `:q`, `:wq`, `:q!`, `:tabnew`, `:<line>`) |
 | `v` / `V` | Enter visual mode (char / line) |
 | `Tab` | New tab / next tab |
 | `Alt+Tab` | Previous tab |

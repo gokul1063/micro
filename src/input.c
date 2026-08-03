@@ -77,6 +77,69 @@ void editorMoveCursor(int key){
   }
 }
 
+static int is_word_char(int c) {
+  return isalnum(c) || c == '_';
+}
+
+/* w: jump to start of next word */
+void editorMoveWord(void) {
+  while (E.cy < E.numrows) {
+    erow *row = &E.row[E.cy];
+    int j = E.cx;
+    if (j < row->size) {
+      if (is_word_char(row->chars[j])) {
+        while (j < row->size && is_word_char(row->chars[j])) j++;
+      }
+      while (j < row->size && !is_word_char(row->chars[j])) j++;
+      if (j < row->size) { E.cx = j; return; }
+    }
+    E.cy++;
+    E.cx = 0;
+  }
+}
+
+/* e: jump to end of current or next word */
+void editorMoveWordEnd(void) {
+  while (E.cy < E.numrows) {
+    erow *row = &E.row[E.cy];
+    int j = E.cx;
+    if (j < row->size) {
+      if (is_word_char(row->chars[j])) {
+        while (j < row->size && is_word_char(row->chars[j])) j++;
+        E.cx = (j > 0) ? j - 1 : 0;
+        return;
+      } else {
+        while (j < row->size && !is_word_char(row->chars[j])) j++;
+        if (j < row->size) { E.cx = j; continue; }
+      }
+    }
+    E.cy++;
+    E.cx = 0;
+  }
+}
+
+/* b: jump to start of previous word */
+void editorMoveWordBack(void) {
+  while (E.cy >= 0) {
+    erow *row = &E.row[E.cy];
+    int j = E.cx;
+    if (j > 0 && is_word_char(row->chars[j - 1])) {
+      while (j > 0 && is_word_char(row->chars[j - 1])) j--;
+      E.cx = j;
+      return;
+    }
+    while (j > 0 && !is_word_char(row->chars[j - 1])) j--;
+    if (j > 0) {
+      E.cx = j;
+      while (E.cx > 0 && is_word_char(row->chars[E.cx - 1])) E.cx--;
+      return;
+    }
+    if (E.cy == 0) return;
+    E.cy--;
+    E.cx = E.row[E.cy].size;
+  }
+}
+
 /*** modes ***/
 
 void editorSetMode(EditorMode mode) {
@@ -85,11 +148,13 @@ void editorSetMode(EditorMode mode) {
 
 void editorInsertMode(void) {
   E.mode = MODE_INSERT;
+  editorBeginUndoGroup();
   editorSetStatusMessage("-- INSERT --");
 }
 
 void editorNormalMode(void) {
   E.mode = MODE_NORMAL;
+  editorEndUndoGroup();
   editorSetStatusMessage("");
 }
 
@@ -252,6 +317,7 @@ void editorVisualModeProcessKey(int c) {
     editorExitVisualMode();
   } else if (c == 'd' || c == delete_line_key) {
     // delete selection
+    editorUndoPush();
     editorDeleteSelection();
     editorExitVisualMode();
   } else if (c == '\x1b' || c == 'v' || c == 'V') {
@@ -267,7 +333,18 @@ void editorGotoLine(void) {
   char *p = cmd;
   while (*p == ' ') p++;
 
-  if (*p == 'e') {
+  if (strcmp(p, "w") == 0 || strcmp(p, "w!") == 0) {
+    editorSave();
+  } else if (strcmp(p, "q") == 0) {
+    editorCloseTab();
+  } else if (strcmp(p, "q!") == 0) {
+    editorForceCloseTab();
+  } else if (strcmp(p, "wq") == 0) {
+    editorSave();
+    if (E.dirty == 0) editorCloseTab();
+  } else if (strcmp(p, "tabnew") == 0) {
+    editorNewTab();
+  } else if (*p == 'e') {
     p++;
     while (*p == ' ') p++;
     if (*p != '\0') {
@@ -329,10 +406,47 @@ void editorProcessKey(){
     int paste_after_key = config_key_to_code(cfg->normal_keys.normal_paste_after);
     int paste_before_key = config_key_to_code(cfg->normal_keys.normal_paste_before);
 
+    /* two-key commands (dd, yy, gg, gG) */
+    static int pending_key = 0;
+    if (pending_key) {
+      int p = pending_key;
+      pending_key = 0;
+      if (p == 'd' && c == 'd') { editorUndoPush(); editorDeleteLine(); return; }
+      if (p == 'y' && c == 'y') { editorCopyLine(); return; }
+      if (p == 'g' && c == 'g') { E.cy = 0; E.cx = 0; E.rowoff = 0; return; }
+      if (p == 'g' && c == 'G') { E.cy = E.numrows - 1; if (E.cy >= 0) E.cx = E.row[E.cy].size; return; }
+      /* otherwise: discard pending and process c normally below */
+    }
+    if (c == 'd' || c == 'y' || c == 'g') {
+      pending_key = c;
+      return;
+    }
+
     switch (c) {
       case '\r':
         editorInsertMode();
         editorInsertNewline();
+        break;
+      case '^':
+        if (E.cy < E.numrows) {
+          erow *row = &E.row[E.cy];
+          int j = 0;
+          while (j < row->size && (row->chars[j] == ' ' || row->chars[j] == '\t')) j++;
+          E.cx = j;
+        }
+        break;
+      case 'w':
+        editorMoveWord();
+        break;
+      case 'e':
+        editorMoveWordEnd();
+        break;
+      case 'b':
+        editorMoveWordBack();
+        break;
+      case 'G':
+        E.cy = E.numrows - 1;
+        if (E.cy >= 0) E.cx = E.row[E.cy].size;
         break;
       case CTRL_KEY('q'):
         editorCloseTab();
@@ -346,6 +460,7 @@ void editorProcessKey(){
       case CTRL_KEY('h'):
       case DEL_KEY:
       case BACKSPACE:
+        editorUndoPush();
         if (c == DEL_KEY) editorMoveCursor(ARROW_RIGHT);
         editorDelChar();
         break;
@@ -409,17 +524,21 @@ void editorProcessKey(){
           if (E.cy < E.numrows) E.cx = E.row[E.cy].size;
           editorInsertMode();
         } else if (c == insert_below_key) {
+          editorUndoPush();
           editorInsertNewline();
           editorInsertMode();
         } else if (c == insert_above_key) {
+          editorUndoPush();
           if (E.cy > 0) { E.cy--; }
           E.cx = 0;
           editorInsertNewline();
           editorMoveCursor(ARROW_UP);
           editorInsertMode();
         } else if (c == delete_char_key) {
+          editorUndoPush();
           editorDelChar();
         } else if (c == delete_line_key) {
+          editorUndoPush();
           editorDeleteLine();
         } else if (c == undo_key) {
           editorUndo();
@@ -438,8 +557,10 @@ void editorProcessKey(){
         } else if (c == copy_line_key) {
           editorCopyLine();
         } else if (c == paste_after_key) {
+          editorUndoPush();
           editorPasteAfter();
         } else if (c == paste_before_key) {
+          editorUndoPush();
           editorPasteBefore();
         } else if (c == ARROW_UP) {
           editorMoveCursor(ARROW_UP);

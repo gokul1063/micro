@@ -164,6 +164,11 @@ void editorDeleteLine(void);
 void editorUndo(void);
 void editorRedo(void);
 
+/* undo.c */
+void editorUndoPush(void);
+void editorBeginUndoGroup(void);
+void editorEndUndoGroup(void);
+
 /* highlight.c */
 int is_separator(int c);
 void editorUpdateSyntax(erow *row);
@@ -187,6 +192,7 @@ void editorNewTab(void);
 void editorNextTab(void);
 void editorPrevTab(void);
 void editorCloseTab(void);
+void editorForceCloseTab(void);
 
 /* find.c */
 void editorFindCallback(char *query , int key);
@@ -199,6 +205,9 @@ void editorPrevMatch(void);
 /* input.c */
 char* editorPrompt(char* prompt , void (*callback)(char *, int));
 void editorMoveCursor(int key);
+void editorMoveWord(void);
+void editorMoveWordEnd(void);
+void editorMoveWordBack(void);
 void editorProcessKey(void);
 void editorSetMode(EditorMode mode);
 void editorInsertMode(void);
