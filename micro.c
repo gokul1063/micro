@@ -2067,8 +2067,8 @@ void editorRefreshScreen(){
                                                (E.rx - E.coloff) + 1 + gutter);
   abAppend(&ab , buf , strlen(buf));
 
-  /* blinking bar cursor in every mode */
-  abAppend(&ab , "\x1b[5 q" , 5);
+  /* solid block cursor (default style) */
+  abAppend(&ab , "\x1b[1 q" , 5);
 
   /* show the cursor and enable blinking */
   abAppend(&ab , "\x1b[?25h\x1b[?12h" , 12);
@@ -2117,7 +2117,7 @@ int main(int argc , char *argv[]) {
   initEditor();
   if (argc >= 2){
     editorOpen(argv[1]);
-    write(STDOUT_FILENO, "\x1b[5 q" , 5);
+    write(STDOUT_FILENO, "\x1b[1 q" , 5);
   }
 
   editorSetStatusMessage("i=insert | Tab=new tab | Alt+Tab=prev | :e <file>=open | :<n>=goto | Ctrl-s=save | Ctrl-q=quit");

@@ -1,2 +1,8 @@
+CC = gcc
+CFLAGS = -Wall -Wextra -pedantic -std=c99
+
 micro: micro.c config.c
-	gcc micro.c config.c -o micro -Wall -Wextra -pedantic -std=c99
+	$(CC) $(CFLAGS) micro.c config.c -o micro
+
+clean:
+	rm -f micro
