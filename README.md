@@ -26,16 +26,40 @@ No external dependencies — just a C compiler and a terminal.
 - **`:` command line** — `:e <file>` opens/creates a file, `:<line>` jumps to a line
 - **Status bar** — mode, file, line/col, tab indicator, and cursor percentage; `:reload` applies config changes
 
+## Demo
+
+A short recording of the editor in action (tabs, editing, undo, search, ex-commands):
+
+```sh
+asciinema play demo/demo.cast    # needs `pip install asciinema`
+```
+
+You can also upload `demo/demo.cast` to [asciinema.org](https://asciinema.org)
+to get an embeddable player for this README or your portfolio.
+
 ## Build
+
+### Linux / macOS / BSD
 
 ```sh
 make
 ```
 
-Produces a single binary at `build/micro`. Works on any POSIX system (Linux, macOS, BSD).
+Produces a single binary at `build/micro`.
 
 ```sh
 make clean   # remove the build directory
+```
+
+### Windows
+
+`micro` targets POSIX terminals (termios, `SIGWINCH`, `getline`). The easiest
+way to run it on Windows is **WSL** or the **MSYS2 MSYS shell**, which provide
+those APIs — just use `make` there. For a MinGW-style build, `build.bat` is
+included (also run from an MSYS2/WSL shell):
+
+```bat
+build.bat
 ```
 
 ## Usage
@@ -51,13 +75,16 @@ The editor starts in `NORMAL` mode.
 ```
 micro/
 ├── Makefile
+├── build.bat            # Windows (MSYS2/WSL) build helper
 ├── config.json          # keybindings, themes, settings (loaded from cwd)
+├── demo/demo.cast       # asciinema demo recording
 ├── src/
 │   ├── main.c           # globals, initEditor, main loop
-│   ├── terminal.c       # raw mode, key reading, resize (SIGWINCH)
+│   ├── terminal.c       # raw mode, key reading, resize (SIGWINCH), mouse
 │   ├── buffer.c         # rows, editing, clipboard
+│   ├── undo.c           # snapshot-based undo/redo
 │   ├── highlight.c      # syntax highlighting + language data
-│   ├── fileio.c         # open / save / rec files / quit
+│   ├── fileio.c         # open / save / rec files / recovery / quit
 │   ├── tabs.c           # multi-tab state (ownership transfer)
 │   ├── find.c           # search (/ ? n N)
 │   ├── input.c          # prompt, key processor, modes, visual, : commands
