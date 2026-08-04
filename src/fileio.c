@@ -107,7 +107,89 @@ void editorSave(){
   editorSetStatusMessage("can't save! I/O error :%s" , strerror(errno));
 }
 
+static char *read_file_to_string(const char *path) {
+  FILE *fp = fopen(path, "r");
+  if (!fp) return NULL;
+  fseek(fp, 0, SEEK_END);
+  long len = ftell(fp);
+  fseek(fp, 0, SEEK_SET);
+  char *buf = malloc(len + 1);
+  size_t got = fread(buf, 1, len, fp);
+  buf[got] = '\0';
+  fclose(fp);
+  return buf;
+}
+
+static int editorTryRecover(const char *filename) {
+  char *base = strdup(basename((char *)filename));
+  char recpath[512];
+  snprintf(recpath, sizeof(recpath), "~micro.%s.rec", base);
+  free(base);
+
+  if (access(recpath, F_OK) != 0) return 0;
+
+  /* if the rec file matches the saved file, there is nothing to recover */
+  char *fb = read_file_to_string(filename);
+  char *rb = read_file_to_string(recpath);
+  int recover = 0;
+  if (fb && rb) {
+    size_t rlen = strlen(rb);
+    if (rlen > 0 && rb[rlen - 1] == '\n') rb[rlen - 1] = '\0';
+    recover = (strcmp(fb, rb) != 0);
+  } else {
+    recover = 1;
+  }
+  free(fb);
+  free(rb);
+  if (!recover) return 0;
+
+  char *ans = editorPrompt("Found %s. Recover unsaved changes? (y/n) %s", NULL);
+  if (ans == NULL) {
+    editorSetStatusMessage("Recovery cancelled");
+    return 0;
+  }
+  char c = ans[0];
+  free(ans);
+
+  if (c != 'y' && c != 'Y') {
+    remove(recpath);
+    return 0;
+  }
+
+  FILE *fp = fopen(recpath, "r");
+  if (!fp) return 0;
+
+  E.filename = strdup(filename);
+  editorSelectSyntaxHighlight();
+
+  char *line = NULL;
+  size_t linecap = 0;
+  ssize_t linelen;
+  while ((linelen = getline(&line, &linecap, fp)) != -1) {
+    while (linelen > 0 && (line[linelen - 1] == '\n' || line[linelen - 1] == '\r'))
+      linelen--;
+    editorInsertRow(E.numrows, line, linelen);
+  }
+  free(line);
+  fclose(fp);
+
+  E.dirty = 1;
+  editorSetStatusMessage("Recovered unsaved changes");
+  return 1;
+}
+
 void editorOpen(char *filename) {
+  if (editorTryRecover(filename)) {
+    E.cx = 0;
+    E.cy = 0;
+    E.rx = 0;
+    E.rowoff = 0;
+    E.coloff = 0;
+    E.mode = MODE_NORMAL;
+    editorCreateRecFile();
+    return;
+  }
+
   free(E.filename);
   if (E.recfile) {
     remove(E.recfile);

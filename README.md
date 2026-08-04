@@ -20,8 +20,11 @@ No external dependencies — just a C compiler and a terminal.
 - **Word motions** — `w` `b` `e`, plus `^` (first non-blank), `gg` / `G` (first / last line)
 - **Vim ex-commands** — `:w` `:q` `:q!` `:wq` `:tabnew` `:e <file>` `:<line>`
 - **Blinking solid-block cursor**
+- **Mouse support** — click to position the cursor, scroll wheel to navigate
+- **Crash recovery** — reopening a file with a leftover `~micro.<file>.rec` asks to restore your unsaved work
 - **Live resize** — handles `SIGWINCH` and redraws on terminal resize
 - **`:` command line** — `:e <file>` opens/creates a file, `:<line>` jumps to a line
+- **Status bar** — mode, file, line/col, tab indicator, and cursor percentage; `:reload` applies config changes
 
 ## Build
 
@@ -103,7 +106,7 @@ to sensible defaults if the file is missing.
 {
   "keybindings": { "normal_mode": { "...": "..." }, "insert_mode": { "...": "..." } },
   "colors":      { "opencode": { "keyword1": "#9d7cd8", "..." }, "light": { "..." } },
-  "settings":    { "tab_stop": 4, "theme": "opencode", "show_line_numbers": true, "..." }
+  "settings":    { "tab_stop": 4, "theme": "opencode", "show_line_numbers": true, "enable_mouse": true, "..." }
 }
 ```
 

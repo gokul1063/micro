@@ -344,6 +344,11 @@ void editorGotoLine(void) {
     if (E.dirty == 0) editorCloseTab();
   } else if (strcmp(p, "tabnew") == 0) {
     editorNewTab();
+  } else if (strcmp(p, "reload") == 0) {
+    config_free();
+    config_init();
+    config_load("config.json");
+    editorSetStatusMessage("Config reloaded");
   } else if (*p == 'e') {
     p++;
     while (*p == ' ') p++;
@@ -369,11 +374,45 @@ void editorGotoLine(void) {
 
 /*** key processor ***/
 
+void editorHandleMouse(void) {
+  int btn = E.mouse_btn;
+  int mx = E.mouse_x;  /* 1-based column */
+  int my = E.mouse_y;  /* 1-based row */
+
+  if (btn == 64) {  /* wheel up */
+    for (int i = 0; i < 3; i++) editorMoveCursor(ARROW_UP);
+    return;
+  }
+  if (btn == 65) {  /* wheel down */
+    for (int i = 0; i < 3; i++) editorMoveCursor(ARROW_DOWN);
+    return;
+  }
+
+  int gutter = editorLineNumWidth();
+  int col = mx - 1 - gutter;
+  if (col < 0) col = 0;
+  col += E.coloff;
+
+  int filerow = E.rowoff + (my - 1);
+  if (filerow >= E.numrows) {
+    E.cy = E.numrows;
+    E.cx = 0;
+    return;
+  }
+  E.cy = filerow;
+  E.cx = editorRowRxToCx(&E.row[filerow], col);
+}
+
 void editorProcessKey(){
   EditorConfig *cfg = config_get();
   int c = editorReadKey();
 
   if (c == -1) return;  /* interrupted by a signal (resize); main loop will redraw */
+
+  if (c == MOUSE_KEY) {
+    editorHandleMouse();
+    return;
+  }
 
   if (E.mode == MODE_NORMAL) {
     int quit_key = config_key_to_code(cfg->normal_keys.normal_quit);

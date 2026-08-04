@@ -8,6 +8,7 @@ void die(const char *s){
 }
 
 void disableRawMode(){
+  editorDisableMouse();
   if (tcsetattr(STDIN_FILENO , TCSAFLUSH , &E.orgin_termios) == -1)
     die("tcsetattr");
 }
@@ -58,6 +59,15 @@ void editorInstallResizeHandler(void) {
   sigaction(SIGWINCH, &sa, NULL);
 }
 
+void editorEnableMouse(void) {
+  /* enable SGR mouse reporting: click + scroll wheel */
+  write(STDOUT_FILENO, "\x1b[?1000h\x1b[?1006h", 15);
+}
+
+void editorDisableMouse(void) {
+  write(STDOUT_FILENO, "\x1b[?1000l\x1b[?1006l", 15);
+}
+
 int editorReadKey(){
   int nread;
   char c;
@@ -78,7 +88,28 @@ int editorReadKey(){
 
     if (seq[0] == '['){
       if (read(STDIN_FILENO , &seq[1] , 1) != 1) return '\x1b';
-      if (seq[1] >= '0' && seq[1] <= '9'){
+      if (seq[1] == '<'){
+        /* SGR mouse report: ESC [ < btn ; x ; y M/m */
+        int val = 0, i = 0;
+        int btn = 0, mx = 0, my = 0;
+        char ch;
+        while (read(STDIN_FILENO, &ch, 1) == 1) {
+          if (ch == ';' || ch == 'M' || ch == 'm') {
+            if (i == 0) btn = val;
+            else if (i == 1) mx = val;
+            else if (i == 2) my = val;
+            if (ch == 'M' || ch == 'm') break;
+            i++;
+            val = 0;
+          } else if (ch >= '0' && ch <= '9') {
+            val = val * 10 + (ch - '0');
+          }
+        }
+        E.mouse_btn = btn;
+        E.mouse_x = mx;
+        E.mouse_y = my;
+        return MOUSE_KEY;
+      } else if (seq[1] >= '0' && seq[1] <= '9'){
         if (read(STDIN_FILENO , &seq[2] , 1) != 1) return '\x1b';
         if (seq[2] == '~'){
           switch(seq[1]){

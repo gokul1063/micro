@@ -109,6 +109,9 @@ static void config_parse_settings(char *json) {
     char *auto_indent = json_find_key(p, "auto_indent");
     if (auto_indent) json_parse_bool(auto_indent, &g_config.settings.auto_indent);
 
+    char *enable_mouse = json_find_key(p, "enable_mouse");
+    if (enable_mouse) json_parse_bool(enable_mouse, &g_config.settings.enable_mouse);
+
     char *theme = json_find_key(p, "theme");
     if (theme) json_parse_string(theme, g_config.settings.theme, sizeof(g_config.settings.theme));
 }
@@ -247,6 +250,7 @@ static void config_set_defaults(void) {
     g_config.settings.show_line_numbers = true;
     g_config.settings.highlight_current_line = true;
     g_config.settings.auto_indent = true;
+    g_config.settings.enable_mouse = true;
     strcpy(g_config.settings.theme, "opencode");
 
     strcpy(g_config.normal_keys.normal_quit, "Ctrl-q");

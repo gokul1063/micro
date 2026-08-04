@@ -14,6 +14,7 @@ typedef struct {
     bool show_line_numbers;
     bool highlight_current_line;
     bool auto_indent;
+    bool enable_mouse;
     char theme[32];
 } EditorSettings;
 

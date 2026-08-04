@@ -233,7 +233,9 @@ void editorDrawStatusBar(struct abuf *ab){
 
   int len = snprintf(status , sizeof(status) , " %s %.20s - %d lines %s" , mode_str, E.filename ? E.filename : "[No Name]" , E.numrows , E.dirty ? "(modified)" : "");
 
-  int rlen = snprintf(rstatus , sizeof(rstatus) , "%s | %d-%d | T%d/%d " ,(E.syntax ) ? E.syntax->filetype : "no ft", E.cy + 1 , E.numrows, cur_tab + 1, tab_count);
+  int pct = (E.numrows > 0) ? ((E.cy + 1) * 100 / E.numrows) : 100;
+  if (pct > 100) pct = 100;
+  int rlen = snprintf(rstatus , sizeof(rstatus) , "%s | %d-%d | T%d/%d | %d%% " ,(E.syntax ) ? E.syntax->filetype : "no ft", E.cy + 1 , E.numrows, cur_tab + 1, tab_count, pct);
 
   if (len > E.screencols) len = E.screencols;
   abAppend(ab , status , len);

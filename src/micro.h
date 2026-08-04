@@ -64,6 +64,7 @@ struct editorConfig{
   char *recfile;
   int resize;
   int quit;
+  int mouse_btn, mouse_x, mouse_y;
 };
 
 extern struct editorConfig E;
@@ -102,7 +103,8 @@ enum editorKey{
   END_KEY,
   PAGE_UP,
   PAGE_DOWN,
-  ALT_TAB = 2000
+  ALT_TAB = 2000,
+  MOUSE_KEY = 3000
 };
 
 enum editorHighlight{
@@ -141,6 +143,8 @@ int getCursorPosition(int *row , int *col);
 int getWindowSize(int *row , int *col);
 void editorHandleResize(void);
 void editorInstallResizeHandler(void);
+void editorEnableMouse(void);
+void editorDisableMouse(void);
 
 /* buffer.c */
 int editorRowCxToRx(erow *row , int cx);
@@ -218,6 +222,7 @@ void editorVisualModeProcessKey(int c);
 void editorYankSelection(void);
 void editorDeleteSelection(void);
 void editorGotoLine(void);
+void editorHandleMouse(void);
 
 /* screen.c */
 void abAppend(struct abuf *ab , const char *s , int len);

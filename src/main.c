@@ -30,9 +30,15 @@ void initEditor() {
   E.recfile = NULL;
   E.resize = 0;
   E.quit = 0;
+  E.mouse_btn = 0;
+  E.mouse_x = 0;
+  E.mouse_y = 0;
 
   config_init();
   config_load("config.json");
+
+  if (config_get()->settings.enable_mouse)
+    editorEnableMouse();
 
   if (getWindowSize(&E.screenrows , &E.screencols ) == -1 )
     die("getWindowSize");
