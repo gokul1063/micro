@@ -1,6 +1,6 @@
 # micro
 
-A small, fast, vim-inspired terminal text editor written in C (kilo-style).
+A small, fast, vim-inspired terminal text editor written in C .
 No external dependencies — just a C compiler and a terminal.
 
 ![version](https://img.shields.io/badge/version-1.2-blue)
@@ -28,14 +28,7 @@ No external dependencies — just a C compiler and a terminal.
 
 ## Demo
 
-A short recording of the editor in action (tabs, editing, undo, search, ex-commands):
-
-```sh
-asciinema play demo/demo.cast    # needs `pip install asciinema`
-```
-
-You can also upload `demo/demo.cast` to [asciinema.org](https://asciinema.org)
-to get an embeddable player for this README or your portfolio.
+[![micro demo](demo/demo.gif)](https://asciinema.org/a/rgtJ66vCfLB4MSgs)
 
 ## Build
 
@@ -132,15 +125,13 @@ to sensible defaults if the file is missing.
 ```jsonc
 {
   "keybindings": { "normal_mode": { "...": "..." }, "insert_mode": { "...": "..." } },
-  "colors":      { "opencode": { "keyword1": "#9d7cd8", "..." }, "light": { "..." } },
+  "colors":      { "default": { "keyword1": "#9d7cd8", "..." }, "light": { "..." } },
   "settings":    { "tab_stop": 4, "theme": "opencode", "show_line_numbers": true, "enable_mouse": true, "..." }
 }
 ```
 
 ### Themes
 
-- The default theme is `opencode` (peach accent on near-black), matching the
-  [opencode](https://opencode.ai) TUI palette.
 - Add your own theme as a new block under `colors` and select it with `"theme": "<name>"`.
 - Colors are truecolor hex strings (`#rrggbb`). Your terminal must support 24-bit color
   (`COLORTERM=truecolor`) for the full palette.
@@ -157,6 +148,3 @@ file, and the rec file is removed when the editor exits.
 make clean
 ```
 
-## License
-
-MIT
