@@ -379,12 +379,22 @@ void editorHandleMouse(void) {
   int mx = E.mouse_x;  /* 1-based column */
   int my = E.mouse_y;  /* 1-based row */
 
-  if (btn == 64) {  /* wheel up */
-    for (int i = 0; i < 3; i++) editorMoveCursor(ARROW_UP);
+  if (btn == 64) {  /* wheel up: scroll up, cursor follows its text line */
+    if (E.rowoff > 0) {
+      int d = (E.rowoff < 3) ? E.rowoff : 3;
+      E.rowoff -= d;
+      E.cy -= d;
+    }
     return;
   }
-  if (btn == 65) {  /* wheel down */
-    for (int i = 0; i < 3; i++) editorMoveCursor(ARROW_DOWN);
+  if (btn == 65) {  /* wheel down: scroll down, cursor follows its text line */
+    int max_off = (E.numrows > 0) ? E.numrows : 0;
+    if (E.rowoff < max_off) {
+      int d = (max_off - E.rowoff < 3) ? (max_off - E.rowoff) : 3;
+      E.rowoff += d;
+      E.cy += d;
+      if (E.cy > E.numrows) E.cy = E.numrows;
+    }
     return;
   }
 

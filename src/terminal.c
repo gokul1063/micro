@@ -109,6 +109,16 @@ int editorReadKey(){
         E.mouse_x = mx;
         E.mouse_y = my;
         return MOUSE_KEY;
+      } else if (seq[1] == 'M'){
+        /* X10 mouse: ESC [ M <btn+32> <col+32> <row+32> */
+        char b[3];
+        if (read(STDIN_FILENO, &b[0], 1) != 1) return '\x1b';
+        if (read(STDIN_FILENO, &b[1], 1) != 1) return '\x1b';
+        if (read(STDIN_FILENO, &b[2], 1) != 1) return '\x1b';
+        E.mouse_btn = (unsigned char)b[0] - 32;
+        E.mouse_x = (unsigned char)b[1] - 32;
+        E.mouse_y = (unsigned char)b[2] - 32;
+        return MOUSE_KEY;
       } else if (seq[1] >= '0' && seq[1] <= '9'){
         if (read(STDIN_FILENO , &seq[2] , 1) != 1) return '\x1b';
         if (seq[2] == '~'){
